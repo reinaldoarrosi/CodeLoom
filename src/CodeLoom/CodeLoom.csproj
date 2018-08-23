@@ -1,0 +1,63 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net46;netstandard2.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeFodyFiles</TargetsForTfmSpecificContentInPackage>
+    <NoWarn>NU5100;NU5118</NoWarn>
+    <DisableFody>true</DisableFody>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- NUSPEC Properties -->
+    <PackageId>$(MSBuildProjectName).Fody</PackageId>
+    <PackageTags>ILWeaving, Fody, Cecil, AOP, Loom, LoomKit, Aspect, Intercept</PackageTags>
+    <PackageOutputPath>$(SolutionDir)nugets</PackageOutputPath>
+    <PackageIconUrl></PackageIconUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fody" Version="3.1.4" PrivateAssets="None" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CodeLoom.Fody\CodeLoom.Fody.csproj" />
+    <ProjectReference Include="..\CodeLoom.Runtime\CodeLoom.Runtime.csproj" />
+  </ItemGroup>
+
+  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="BuildOnlySettings;ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths-&gt;WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')-&gt;WithMetadataValue('IncludeInPack', 'true'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="IncludeFodyFiles">
+    <ItemGroup>
+      <NetClassicFilesToInclude Include="..\LoomKit.Runtime\bin\$(Configuration)\net46\LoomKit.Runtime.*" />
+      <NetStandardFilesToInclude Include="..\LoomKit.Runtime\bin\$(Configuration)\netstandard2.0\LoomKit.Runtime.*" />
+      <NetClassicFilesToInclude Include="..\LoomKit.Fody\bin\$(Configuration)\net46\LoomKit.Fody.*" />
+      <NetStandardFilesToInclude Include="..\LoomKit.Fody\bin\$(Configuration)\netstandard2.0\LoomKit.Fody.*" />
+    </ItemGroup>
+    <CreateItem Include="@(NetClassicFilesToInclude)" AdditionalMetadata="PackagePath=netclassicweaver">
+      <Output TaskParameter="Include" ItemName="TfmSpecificPackageFile" />
+    </CreateItem>
+    <CreateItem Include="@(NetStandardFilesToInclude)" AdditionalMetadata="PackagePath=netstandardweaver">
+      <Output TaskParameter="Include" ItemName="TfmSpecificPackageFile" />
+    </CreateItem>
+  </Target>
+
+  <Target Name="Postbuild" AfterTargets="Build">
+    <ItemGroup>
+      <ToolsFiles Include="..\LoomKit\bin\$(Configuration)\net46\LoomKit.*" />
+      <ToolsFiles Include="..\LoomKit.Runtime\bin\$(Configuration)\net46\LoomKit.Runtime.*" />
+      <ToolsFiles Include="..\LoomKit.Fody\bin\$(Configuration)\net46\*.*" />
+    </ItemGroup>
+    
+    <MakeDir Directories="$(SolutionDir)Tools" />
+    <Copy SourceFiles="@(ToolsFiles)" DestinationFolder="$(SolutionDir)Tools" />
+  </Target>
+</Project>
