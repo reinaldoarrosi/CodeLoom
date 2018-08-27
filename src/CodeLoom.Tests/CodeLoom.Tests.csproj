@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CodeLoom.Fody\CodeLoom.Fody.csproj" />
+    <ProjectReference Include="..\CodeLoom.Fody\CodeLoom.Fody.csproj" />
     <ProjectReference Include="..\TestAssembly\TestAssembly.csproj" />
   </ItemGroup>
 

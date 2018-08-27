@@ -11,6 +11,7 @@ namespace CodeLoom.TestProgram
     {
         public override bool ShouldWeaveType(Type type)
         {
+            var a = typeof(global::TestAssembly.TestClass);
             return type == typeof(TestClass);
         }
     }

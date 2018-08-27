@@ -15,7 +15,7 @@
   <PropertyGroup>
     <!-- NUSPEC Properties -->
     <PackageId>$(MSBuildProjectName).Fody</PackageId>
-    <PackageTags>ILWeaving, Fody, Cecil, AOP, Loom, LoomKit, Aspect, Intercept</PackageTags>
+    <PackageTags>ILWeaving, Fody, Cecil, AOP, Loom, CodeLoom, Aspect, Intercept</PackageTags>
     <PackageOutputPath>$(SolutionDir)nugets</PackageOutputPath>
     <PackageIconUrl></PackageIconUrl>
   </PropertyGroup>
@@ -37,10 +37,10 @@
 
   <Target Name="IncludeFodyFiles">
     <ItemGroup>
-      <NetClassicFilesToInclude Include="..\LoomKit.Runtime\bin\$(Configuration)\net46\LoomKit.Runtime.*" />
-      <NetStandardFilesToInclude Include="..\LoomKit.Runtime\bin\$(Configuration)\netstandard2.0\LoomKit.Runtime.*" />
-      <NetClassicFilesToInclude Include="..\LoomKit.Fody\bin\$(Configuration)\net46\LoomKit.Fody.*" />
-      <NetStandardFilesToInclude Include="..\LoomKit.Fody\bin\$(Configuration)\netstandard2.0\LoomKit.Fody.*" />
+      <NetClassicFilesToInclude Include="..\CodeLoom.Runtime\bin\$(Configuration)\net46\CodeLoom.Runtime.*" />
+      <NetStandardFilesToInclude Include="..\CodeLoom.Runtime\bin\$(Configuration)\netstandard2.0\CodeLoom.Runtime.*" />
+      <NetClassicFilesToInclude Include="..\CodeLoom.Fody\bin\$(Configuration)\net46\CodeLoom.Fody.*" />
+      <NetStandardFilesToInclude Include="..\CodeLoom.Fody\bin\$(Configuration)\netstandard2.0\CodeLoom.Fody.*" />
     </ItemGroup>
     <CreateItem Include="@(NetClassicFilesToInclude)" AdditionalMetadata="PackagePath=netclassicweaver">
       <Output TaskParameter="Include" ItemName="TfmSpecificPackageFile" />
@@ -52,9 +52,9 @@
 
   <Target Name="Postbuild" AfterTargets="Build">
     <ItemGroup>
-      <ToolsFiles Include="..\LoomKit\bin\$(Configuration)\net46\LoomKit.*" />
-      <ToolsFiles Include="..\LoomKit.Runtime\bin\$(Configuration)\net46\LoomKit.Runtime.*" />
-      <ToolsFiles Include="..\LoomKit.Fody\bin\$(Configuration)\net46\*.*" />
+      <ToolsFiles Include="..\CodeLoom\bin\$(Configuration)\net46\CodeLoom.*" />
+      <ToolsFiles Include="..\CodeLoom.Runtime\bin\$(Configuration)\net46\CodeLoom.Runtime.*" />
+      <ToolsFiles Include="..\CodeLoom.Fody\bin\$(Configuration)\net46\*.*" />
     </ItemGroup>
     
     <MakeDir Directories="$(SolutionDir)Tools" />

@@ -15,17 +15,31 @@ namespace CodeLoom.Fody
 {
     public class ModuleWeaver : BaseModuleWeaver
     {
+
         private CodeLoomSetup Setup;
 
         public override void Execute()
         {
-            LogInfo($"Finding \"CodeLoomSetup\" definition in assembly {ModuleDefinition.Assembly.FullName}.");
-            Setup = GetSetup(ModuleDefinition);
-            LogInfo("\"CodeLoomSetup\" found.");
-
-            foreach (var type in ModuleDefinition.Assembly.MainModule.Types)
+            try
             {
-                WeaveType(type);
+                SetupMissingAssemblyResolutionStrategy();
+
+                LogInfo($"Finding \"CodeLoomSetup\" definition in assembly {ModuleDefinition.Assembly.FullName}.");
+                Setup = GetSetup(ModuleDefinition);
+                LogInfo("\"CodeLoomSetup\" found.");
+
+                foreach (var type in ModuleDefinition.Assembly.MainModule.Types)
+                {
+                    WeaveType(type);
+                }
+            }
+            catch (Exception e)
+            {
+                var a = e;
+            }
+            finally
+            {
+                TeardownMissingAssemblyResolutionStrategy();
             }
         }
 
@@ -429,6 +443,61 @@ namespace CodeLoom.Fody
         public override IEnumerable<string> GetAssembliesForScanning()
         {
             return Enumerable.Empty<string>();
+        }
+
+        private void SetupMissingAssemblyResolutionStrategy()
+        {
+            // Fody already registers a handler for AppDomain.CurrentDomain.AssemblyResolve that uses Assembly.Load(byte[], byte[]) to load assemblies
+            // This may cause the same assembly being loaded multiple time. Here we change the event handler using reflection to make our handler run
+            // before the one registered by Fody. Our handler makes sure that an assembly is never loaded more than once.
+            var field = typeof(AppDomain).GetRuntimeFields().FirstOrDefault(f => f.Name == "_AssemblyResolve");
+            var eventDelegate = field.GetValue(AppDomain.CurrentDomain) as MulticastDelegate;
+            var handlers = eventDelegate.GetInvocationList().ToList();
+
+            ResolveEventHandler missingAssemblyResolutionCallback = OnResolveAssembly;
+            handlers.Insert(0, missingAssemblyResolutionCallback);
+
+            field.SetValue(AppDomain.CurrentDomain, Delegate.Combine(handlers.ToArray()));
+        }
+
+        private void TeardownMissingAssemblyResolutionStrategy()
+        {
+            // After we're done with our module weaver we remove our handler, leaving just the handler added by Fody.
+            // This makes sure we won't impact any other weaver that might exist.
+            var field = typeof(AppDomain).GetRuntimeFields().FirstOrDefault(f => f.Name == "_AssemblyResolve");
+            var eventDelegate = field.GetValue(AppDomain.CurrentDomain) as MulticastDelegate;
+            var handlers = eventDelegate.GetInvocationList().ToList();
+
+            handlers.RemoveAt(0);
+
+            field.SetValue(AppDomain.CurrentDomain, Delegate.Combine(handlers.ToArray()));
+        }
+
+        private Assembly OnResolveAssembly(object sender, ResolveEventArgs args)
+        {
+            // This is our custom missing assembly handler. First it checks to see if an assembly with the same name is already loaded.
+            var alreadyLoadedAssembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.FullName == args.Name);
+            if (alreadyLoadedAssembly != null) return alreadyLoadedAssembly;
+
+            // If it doesn't find a loaded assembly, it tries to find a .dll or .exe in one of the paths referenced by the assembly that is being weaved.
+            var missingAssemblyDLLFileName = args.Name.Split(',').First() + ".dll";
+            var missingAssemblyEXEFileName = args.Name.Split(',').First() + ".exe";
+            var referencedAssemblies = new[] { AssemblyFilePath }.Union(References.Split(';'));
+
+            foreach (var referencedAssembly in referencedAssemblies)
+            {
+                var referencedAssemblyFileName = Path.GetFileName(referencedAssembly);
+                if (referencedAssemblyFileName == missingAssemblyDLLFileName || referencedAssemblyFileName == missingAssemblyEXEFileName)
+                {
+                    var assemblyName = new AssemblyName(args.Name);
+                    assemblyName.CodeBase = referencedAssembly;
+
+                    var assembly = Assembly.Load(assemblyName);
+                    return assembly;
+                }
+            }
+
+            return null;
         }
     }
 }

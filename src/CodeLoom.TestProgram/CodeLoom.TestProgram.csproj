@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CodeLoom.Runtime\CodeLoom.Runtime.csproj" />
+    <ProjectReference Include="..\CodeLoom.Runtime\CodeLoom.Runtime.csproj" />
     <ProjectReference Include="..\TestAssembly\TestAssembly.csproj" />
   </ItemGroup>
 
