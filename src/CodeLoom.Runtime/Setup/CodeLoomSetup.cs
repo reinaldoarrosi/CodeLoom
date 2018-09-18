@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CodeLoom.Aspects;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -12,34 +13,9 @@ namespace CodeLoom
         public class Empty : CodeLoomSetup
         { }
 
-        public virtual bool ShouldWeaveType(Type type)
+        public virtual IEnumerable<InstanceAspect> GetInstanceAspects(Type type)
         {
-            return false;
-        }
-
-        public virtual bool ShouldWeaveField(FieldInfo field)
-        {
-            return true;
-        }
-
-        public virtual bool ShouldWeaveMethod(MethodBase method)
-        {
-            return true;
-        }
-
-        public virtual bool ShouldWeaveProperty(PropertyInfo property)
-        {
-            return true;
-        }
-
-        public virtual bool ShouldWeavePropertyGetter(PropertyInfo property)
-        {
-            return true;
-        }
-
-        public virtual bool ShouldWeavePropertySetter(PropertyInfo property)
-        {
-            return true;
+            yield break;
         }
     }
 }

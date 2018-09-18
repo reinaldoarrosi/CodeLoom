@@ -1,4 +1,4 @@
-﻿using CodeLoom.Core;
+﻿using CodeLoom.Contexts;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Aspects
 {
-    public interface IAspect
+    public abstract class MethodAspect
     {
-        void Execute(Invocation invocation);
+        protected abstract void OnMethodInvoked(MethodContext context);
     }
 }

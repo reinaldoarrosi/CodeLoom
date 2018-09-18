@@ -9,27 +9,19 @@ namespace TestAssembly
 {
     public class TestClass
     {
-        private Dictionary<int, string> _indexerValues = new Dictionary<int, string>();
+        private List<int> b = new List<int>();
+        private int d;
 
-        public string StoredString { get; set; }
-
-        public string this[int index]
+        public TestClass()
         {
-            get { return _indexerValues[index]; }
-            set { if (value == null) _indexerValues.Remove(index); else _indexerValues[index] = value; }
+            d = 0;
         }
 
-        public void StoreString(string str)
-        {
-            StoredString = str;
-        }
+        public TestClass(int a)
+        { }
 
-        public int DivideInt(int a, int b, ref int remainder)
-        {
-            var result = a / b;
-            remainder = a % b;
-
-            return result;
-        }
+        public TestClass(int a, int c)
+            : this(a)
+        { }
     }
 }
