@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Fody
 {
-    class MethodAspectsWeaver
+    class InterceptPropertyAspectsWeaver
     {
         internal ModuleWeaver ModuleWeaver;
 
-        public MethodAspectsWeaver(ModuleWeaver moduleWeaver)
+        public InterceptPropertyAspectsWeaver(ModuleWeaver moduleWeaver)
         {
             ModuleWeaver = moduleWeaver;
         }

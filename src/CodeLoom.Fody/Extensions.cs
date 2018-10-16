@@ -34,36 +34,89 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static TypeReference GetClosedGenericType(this TypeReference type, MethodReference closedGenericMethod)
+        public static TypeReference GetClosedGenericType(this TypeReference type, MethodReference closedGenericMethod, ModuleDefinition moduleDefinition)
         {
-            var genericParameter = closedGenericMethod.GenericParameters.FirstOrDefault(t => t.FullName == type.FullName);
+            if (type.IsGenericInstance)
+            {
+                var currentGenericType = type as GenericInstanceType;
+                var newGenericType = new GenericInstanceType(currentGenericType.ElementType.GetClosedGenericType(closedGenericMethod, moduleDefinition));
 
-            if (genericParameter == null)
-                type = type.GetClosedGenericType(closedGenericMethod.DeclaringType);
+                foreach (var p in currentGenericType.GenericArguments)
+                {
+                    newGenericType.GenericArguments.Add(p.GetClosedGenericType(closedGenericMethod, moduleDefinition));
+                }
+
+                return newGenericType;
+            }
+
+            if (type.IsGenericParameter)
+            {
+                var genericParameter = closedGenericMethod.GenericParameters.FirstOrDefault(t => t.FullName == type.FullName);
+
+                if (genericParameter == null)
+                    type = type.GetClosedGenericType(closedGenericMethod.DeclaringType, moduleDefinition);
+            }
+
+            if (!type.IsGenericParameter)
+            {
+                type = moduleDefinition.ImportReference(type);
+            }
 
             return type;
         }
 
-        public static TypeReference GetClosedGenericType(this TypeReference type, TypeReference closedGenericType)
+        public static TypeReference GetClosedGenericType(this TypeReference type, TypeReference closedGenericType, ModuleDefinition moduleDefinition)
         {
-            if (!(closedGenericType is GenericInstanceType))
-                throw new ArgumentException($"{nameof(closedGenericType)} must be an instance of {typeof(GenericInstanceType).FullName}");
+            if (type.IsGenericInstance)
+            {
+                var currentGenericType = type as GenericInstanceType;
+                var newGenericType = new GenericInstanceType(currentGenericType.ElementType.GetClosedGenericType(closedGenericType, moduleDefinition));
 
-            if (closedGenericType.GenericParameters.Count <= 0)
-                throw new ArgumentException($"{closedGenericType.FullName} does not contain any generic parameters");
+                foreach (var p in currentGenericType.GenericArguments)
+                {
+                    newGenericType.GenericArguments.Add(p.GetClosedGenericType(closedGenericType, moduleDefinition));
+                }
 
-            var genericParameter = closedGenericType.GenericParameters.FirstOrDefault(t => t.FullName == type.FullName);
+                return newGenericType;
+            }
 
-            if (genericParameter == null)
-                throw new KeyNotFoundException($"Could not find generic parameter {type.FullName} in {closedGenericType.FullName}");
+            if (type.IsGenericParameter)
+            {
+                if (!(closedGenericType is GenericInstanceType))
+                    throw new ArgumentException($"{nameof(closedGenericType)} must be an instance of {typeof(GenericInstanceType).FullName}");
 
-            return (closedGenericType as GenericInstanceType).GenericArguments[genericParameter.Position];
+                var openGenericType = (closedGenericType as GenericInstanceType).ElementType;
+
+                if (openGenericType.GenericParameters.Count <= 0)
+                    throw new ArgumentException($"{closedGenericType.FullName} does not contain any generic parameters");
+
+                var genericParameter = openGenericType.GenericParameters.FirstOrDefault(t => t.FullName == type.FullName);
+
+                if (genericParameter == null)
+                    throw new KeyNotFoundException($"Could not find generic parameter {type.FullName} in {closedGenericType.FullName}");
+
+                type = (closedGenericType as GenericInstanceType).GenericArguments[genericParameter.Position];
+            }
+
+            if (!type.IsGenericParameter)
+            {
+                type = moduleDefinition.ImportReference(type);
+            }
+
+            return type;
+        }
+
+        public static Type TryGetSystemType(this TypeDefinition typeDefinition)
+        {
+            var typeName = $"{typeDefinition.GetStandardTypeName()}, {typeDefinition.Module.Assembly.FullName}";
+            var type = Type.GetType(typeName);
+
+            return type;
         }
 
         public static Type GetSystemType(this TypeDefinition typeDefinition)
         {
-            var typeName = $"{typeDefinition.GetStandardTypeName()}, {typeDefinition.Module.Assembly.FullName}";
-            var type = Type.GetType(typeName);
+            var type = TryGetSystemType(typeDefinition);
 
             if (type == null)
                 throw new KeyNotFoundException($"Could not find Type {typeDefinition.FullName}");

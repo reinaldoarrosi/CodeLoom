@@ -15,9 +15,9 @@ namespace CodeLoom.Fody
     public class ModuleWeaver : BaseModuleWeaver
     {
         internal CodeLoomSetup Setup;
-        internal InstanceAspectsWeaver InstanceAspectsWeaver;
-        internal MethodAspectsWeaver MethodAspectsWeaver;
-        internal PropertyAspectsWeaver PropertyAspectsWeaver;
+        internal ImplementInterfaceAspectsWeaver ImplementInterfaceAspectsWeaver;
+        internal InterceptMethodAspectsWeaver InterceptMethodAspectsWeaver;
+        internal InterceptPropertyAspectsWeaver InterceptPropertyAspectsWeaver;
 
         public override void Execute()
         {
@@ -30,9 +30,9 @@ namespace CodeLoom.Fody
                 LogInfo("\"CodeLoomSetup\" found.");
 
                 LogInfo("Initializing weavers.");
-                InstanceAspectsWeaver = new InstanceAspectsWeaver(this);
-                MethodAspectsWeaver = new MethodAspectsWeaver(this);
-                PropertyAspectsWeaver = new PropertyAspectsWeaver(this);
+                ImplementInterfaceAspectsWeaver = new ImplementInterfaceAspectsWeaver(this);
+                InterceptMethodAspectsWeaver = new InterceptMethodAspectsWeaver(this);
+                InterceptPropertyAspectsWeaver = new InterceptPropertyAspectsWeaver(this);
                 LogInfo("Initialization OK.");
 
                 foreach (var type in ModuleDefinition.Assembly.MainModule.Types)
@@ -52,9 +52,9 @@ namespace CodeLoom.Fody
 
             LogInfo($"Weaving type {type.FullName}");
 
-            InstanceAspectsWeaver.Weave(type);
-            MethodAspectsWeaver.Weave(type);
-            PropertyAspectsWeaver.Weave(type);
+            ImplementInterfaceAspectsWeaver.Weave(type);
+            InterceptMethodAspectsWeaver.Weave(type);
+            InterceptPropertyAspectsWeaver.Weave(type);
 
             #region OLD
             //if (Setup.ShouldWeaveType(type.GetSystemType()))

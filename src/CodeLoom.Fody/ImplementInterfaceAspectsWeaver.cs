@@ -11,11 +11,11 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Fody
 {
-    class InstanceAspectsWeaver
+    class ImplementInterfaceAspectsWeaver
     {
         internal ModuleWeaver ModuleWeaver;
 
-        public InstanceAspectsWeaver(ModuleWeaver moduleWeaver)
+        public ImplementInterfaceAspectsWeaver(ModuleWeaver moduleWeaver)
         {
             ModuleWeaver = moduleWeaver;
         }
@@ -24,14 +24,14 @@ namespace CodeLoom.Fody
 
         public void Weave(TypeDefinition typeDefinition)
         {
-            var type = typeDefinition.GetSystemType();
+            var type = typeDefinition.TryGetSystemType();
             if (type == null)
             {
                 ModuleWeaver.LogInfo($"Type {typeDefinition.FullName} will not be weaved because it was not possible to load its corresponding System.Type");
                 return;
             }
 
-            var typeAspects = ModuleWeaver.Setup.GetInstanceAspects(type);
+            var typeAspects = ModuleWeaver.Setup.GetAspects(type);
             foreach (var aspect in typeAspects)
             {
                 try
@@ -48,22 +48,26 @@ namespace CodeLoom.Fody
             }
         }
 
-        private void ApplyAspect(TypeDefinition typeDefinition, Type type, InstanceAspect aspect)
+        private void ApplyAspect(TypeDefinition typeDefinition, Type type, ImplementInterfaceAspect aspect)
         {
             var aspectInstanceField = AddAspectField(typeDefinition, aspect);
             ImplementInterfaces(typeDefinition, aspectInstanceField, aspect);
         }
 
-        private FieldDefinition AddAspectField(TypeDefinition typeDefinition, InstanceAspect aspect)
+        private FieldDefinition AddAspectField(TypeDefinition typeDefinition, ImplementInterfaceAspect aspect)
         {
             ModuleWeaver.LogInfo($"Creating private field for aspect {aspect.GetType().FullName} in {typeDefinition.FullName}");
+
+            // Import the ctor reference but changes the declaring type so that the ctor 
+            // reference points to a closed generic type (in case the interface is generic)
+            var aspectTypeRef = ModuleDefinition.ImportReference(aspect.GetType());
+            var aspectTypeDef = aspectTypeRef.Resolve();
+            var aspectCtor = ModuleDefinition.ImportReference(aspectTypeDef.Methods.FirstOrDefault(m => m.IsConstructor && !m.IsStatic && !m.HasParameters));
+            aspectCtor.DeclaringType = aspectTypeRef;
 
             // Creates a private field which will contain an instance of the aspect
             // This instance will then be used to implement the interfaces
             // IOW, the type that is being weaved will work as a proxy to this instance
-            var aspectTypeRef = ModuleDefinition.ImportReference(aspect.GetType());
-            var aspectTypeDef = aspectTypeRef.Resolve();
-            var aspectCtor = ModuleDefinition.ImportReference(aspectTypeDef.Methods.FirstOrDefault(m => m.IsConstructor && !m.IsStatic && !m.HasParameters));
             var fieldDefinition = new FieldDefinition($"<{aspectTypeRef.GetSimpleTypeName()}>k_instance", Mono.Cecil.FieldAttributes.Private, aspectTypeRef);
             typeDefinition.Fields.Add(fieldDefinition);
 
@@ -85,7 +89,7 @@ namespace CodeLoom.Fody
             return fieldDefinition;
         }
 
-        private void ImplementInterfaces(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, InstanceAspect aspect)
+        private void ImplementInterfaces(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, ImplementInterfaceAspect aspect)
         {
             var interfaces = aspect.GetType().GetInterfaces();
 
@@ -110,7 +114,7 @@ namespace CodeLoom.Fody
             }
         }
 
-        private void ImplementInterfaceProperties(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, InstanceAspect aspect, TypeReference interfaceTypeRef)
+        private void ImplementInterfaceProperties(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, ImplementInterfaceAspect aspect, TypeReference interfaceTypeRef)
         {
             var properties = interfaceTypeRef.Resolve().Properties;
 
@@ -120,8 +124,16 @@ namespace CodeLoom.Fody
 
                 // For every property that is part of the interface being implemented, 
                 // creates a new property with the same signature on the type being weaved
-                var propTypeRef = prop.PropertyType.GetClosedGenericType(interfaceTypeRef);
-                var propDefinition = new PropertyDefinition(prop.Name, Mono.Cecil.PropertyAttributes.None, propTypeRef);
+                var propTypeRef = prop.PropertyType.GetClosedGenericType(interfaceTypeRef, ModuleDefinition);
+                var propDefinition = new PropertyDefinition(prop.Name, prop.Attributes, propTypeRef)
+                {
+                    Constant = prop.Constant,
+                    HasConstant = prop.HasConstant,
+                    HasDefault = prop.HasDefault,
+                    HasThis = prop.HasThis,
+                    IsRuntimeSpecialName = prop.IsRuntimeSpecialName,
+                    IsSpecialName = prop.IsSpecialName
+                };
                 typeDefinition.Properties.Add(propDefinition);
 
                 if (prop.GetMethod != null)
@@ -147,13 +159,25 @@ namespace CodeLoom.Fody
                     {
                         // We also copy the parameters of the original "getter"
                         // Generally "getters" do not have parameters, but if the property is an indexer property, there will be parameters
-                        propGetMethod.Parameters.Add(
-                            new ParameterDefinition(
-                                p.Name, 
-                                Mono.Cecil.ParameterAttributes.None, 
-                                p.ParameterType.GetClosedGenericType(interfaceTypeRef)
-                            )
-                        );
+                        var parameter = new ParameterDefinition(
+                            p.Name,
+                            p.Attributes,
+                            p.ParameterType.GetClosedGenericType(interfaceTypeRef, ModuleDefinition)
+                        )
+                        {
+                            Constant = p.Constant,
+                            HasConstant = p.HasConstant,
+                            HasDefault = p.HasDefault,
+                            HasFieldMarshal = p.HasFieldMarshal,
+                            IsIn = p.IsIn,
+                            IsLcid = p.IsLcid,
+                            IsOptional = p.IsOptional,
+                            IsOut = p.IsOut,
+                            IsReturnValue = p.IsReturnValue,
+                            MarshalInfo = p.MarshalInfo
+                        };
+
+                        propGetMethod.Parameters.Add(parameter);
                     }
 
                     // Writes the "code" of the "getter"
@@ -197,13 +221,25 @@ namespace CodeLoom.Fody
                     {
                         // We also copy the parameters of the original "setter"
                         // Generally "setters" have a single "value" parameter, but there may be more if the property is an indexer property
-                        propSetMethod.Parameters.Add(
-                            new ParameterDefinition(
-                                p.Name, 
-                                Mono.Cecil.ParameterAttributes.None, 
-                                p.ParameterType.GetClosedGenericType(interfaceTypeRef)
-                            )
-                        );
+                        var parameter = new ParameterDefinition(
+                            p.Name,
+                            p.Attributes,
+                            p.ParameterType.GetClosedGenericType(interfaceTypeRef, ModuleDefinition)
+                        )
+                        {
+                            Constant = p.Constant,
+                            HasConstant = p.HasConstant,
+                            HasDefault = p.HasDefault,
+                            HasFieldMarshal = p.HasFieldMarshal,
+                            IsIn = p.IsIn,
+                            IsLcid = p.IsLcid,
+                            IsOptional = p.IsOptional,
+                            IsOut = p.IsOut,
+                            IsReturnValue = p.IsReturnValue,
+                            MarshalInfo = p.MarshalInfo
+                        };
+
+                        propSetMethod.Parameters.Add(parameter);
                     }
 
                     // Writes the "code" of the "setter"
@@ -226,7 +262,7 @@ namespace CodeLoom.Fody
             }
         }
 
-        private void ImplementInterfaceMethods(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, InstanceAspect aspect, TypeReference interfaceTypeRef)
+        private void ImplementInterfaceMethods(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, ImplementInterfaceAspect aspect, TypeReference interfaceTypeRef)
         {
             var methods = interfaceTypeRef.Resolve().Methods;
 
@@ -250,8 +286,15 @@ namespace CodeLoom.Fody
                         Mono.Cecil.MethodAttributes.NewSlot |
                         Mono.Cecil.MethodAttributes.Virtual |
                         Mono.Cecil.MethodAttributes.Final;
-                var methodReturnTypeRef = methodRef.ReturnType.GetClosedGenericType(methodRef);
-                var methodDefinition = new MethodDefinition($"{method.Name}", methodAttrs, methodReturnTypeRef) { CallingConvention = method.CallingConvention };
+                var methodReturnTypeRef = methodRef.ReturnType.GetClosedGenericType(methodRef, ModuleDefinition);
+                var methodDefinition = new MethodDefinition($"{method.Name}", methodAttrs, methodReturnTypeRef)
+                {
+                    AggressiveInlining = method.AggressiveInlining,
+                    CallingConvention = method.CallingConvention,
+                    ExplicitThis = method.ExplicitThis,
+                    HasSecurity = method.HasSecurity,
+                    HasThis = method.HasThis,
+                };
                 methodDefinition.Overrides.Add(methodRef); // This is what makes the implementation "explicit"
                 typeDefinition.Methods.Add(methodDefinition);
                 foreach (var p in method.Parameters)
@@ -261,14 +304,17 @@ namespace CodeLoom.Fody
                         new ParameterDefinition(
                             p.Name,
                             p.Attributes,
-                            p.ParameterType.GetClosedGenericType(methodRef)
+                            p.ParameterType.GetClosedGenericType(methodRef, ModuleDefinition)
                         )
                     );
                 }
                 foreach (var p in method.GenericParameters)
                 {
                     // Also copies all generic parameters from the original method to the one being created
-                    methodDefinition.GenericParameters.Add(new GenericParameter(p.Name, methodDefinition));
+                    var genericParameter = new GenericParameter(p.Name, methodDefinition);
+                    foreach (var constraint in p.Constraints) { genericParameter.Constraints.Add(ModuleDefinition.ImportReference(constraint)); }
+
+                    methodDefinition.GenericParameters.Add(genericParameter);
                 }
 
                 // Writes the "code" of the new method

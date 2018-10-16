@@ -12,10 +12,19 @@ namespace TestAssembly
 {
     public class CodeLoomSetup : CodeLoom.CodeLoomSetup
     {
-        public override IEnumerable<InstanceAspect> GetInstanceAspects(Type type)
+        public override IEnumerable<ImplementInterfaceAspect> GetAspects(Type type)
         {
-            if (type == typeof(TestClass))
-                yield return new TestInstanceAspect<double>();
+            if (type == typeof(ClassesToWeave.ClassWithWeavedProperties))
+                yield return new AddPropertiesToClassAspect();
+
+            if (type.FullName == typeof(ClassesToWeave.GenericClassWithWeavedProperties<,>).FullName)
+                yield return new AddPropertiesToClassAspect();
+
+            if (type == typeof(ClassesToWeave.ClassWithWeavedMethods))
+                yield return new AddMethodsToClassAspect();
+
+            if (type == typeof(ClassesToWeave.GenericClassWithWeavedMethods<,>))
+                yield return new AddMethodsToClassAspect();
         }
     }
 }

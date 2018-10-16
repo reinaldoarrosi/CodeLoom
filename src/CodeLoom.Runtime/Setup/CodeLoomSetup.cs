@@ -13,7 +13,7 @@ namespace CodeLoom
         public class Empty : CodeLoomSetup
         { }
 
-        public virtual IEnumerable<InstanceAspect> GetInstanceAspects(Type type)
+        public virtual IEnumerable<ImplementInterfaceAspect> GetAspects(Type type)
         {
             yield break;
         }

@@ -24,6 +24,7 @@ namespace CodeLoom.Fody.Tests
         {
             if (!Directory.Exists("fodytemp")) Directory.CreateDirectory("fodytemp");
             File.Copy("CodeLoom.Runtime.dll", "fodytemp\\CodeLoom.Runtime.dll", true);
+            File.Copy("TestAssemblyReference.dll", "fodytemp\\TestAssemblyReference.dll", true);
         }
     }
 }
