@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.IO;
 using System.Collections;
+using TestAssembly.Aspects;
 
 namespace CodeLoom.Fody.Tests
 {
@@ -97,6 +98,18 @@ namespace CodeLoom.Fody.Tests
         {
             var type = typeof(TestAssembly.ClassesToWeave.ClassWithWeavedMethods);
             var instance = WeaveResult.GetInstance(type.FullName);
+
+            var interface1 = instance as IMethodsAdded;
+            Assert.NotNull(interface1);
+
+            var interface2 = instance as IGenericMethodsAdded1<string>;
+            Assert.NotNull(interface2);
+
+            var interface3 = instance as IGenericMethodsAdded2<double, TestAssemblyReference.SimpleClass>;
+            Assert.NotNull(interface3);
+
+            var interface4 = instance as IGenericMethodsAdded1<double>;
+            Assert.NotNull(interface4);
         }
 
         [Fact]
@@ -107,6 +120,30 @@ namespace CodeLoom.Fody.Tests
 
             var type2 = typeof(TestAssembly.ClassesToWeave.GenericClassWithWeavedMethods<List<int>, ArrayList>);
             var instance2 = WeaveResult.GetInstance(type2.FullName);
+
+            var interface1 = instance1 as IMethodsAdded;
+            Assert.NotNull(interface1);
+
+            var interface2 = instance1 as IGenericMethodsAdded1<string>;
+            Assert.NotNull(interface2);
+
+            var interface3 = instance1 as IGenericMethodsAdded2<double, TestAssemblyReference.SimpleClass>;
+            Assert.NotNull(interface3);
+
+            var interface4 = instance1 as IGenericMethodsAdded1<double>;
+            Assert.NotNull(interface4);
+
+            var interface5 = instance2 as IMethodsAdded;
+            Assert.NotNull(interface5);
+
+            var interface6 = instance2 as IGenericMethodsAdded1<string>;
+            Assert.NotNull(interface6);
+
+            var interface7 = instance2 as IGenericMethodsAdded2<double, TestAssemblyReference.SimpleClass>;
+            Assert.NotNull(interface7);
+
+            var interface8 = instance2 as IGenericMethodsAdded1<double>;
+            Assert.NotNull(interface8);
         }
     }
 }

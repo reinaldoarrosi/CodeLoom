@@ -17,5 +17,15 @@ namespace CodeLoom
         {
             yield break;
         }
+
+        public virtual IEnumerable<InterceptPropertyAspect> GetAspects(PropertyInfo property)
+        {
+            yield break;
+        }
+
+        public virtual IEnumerable<InterceptMethodAspect> GetAspects(MethodBase method)
+        {
+            yield break;
+        }
     }
 }

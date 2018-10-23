@@ -8,8 +8,29 @@ using System.Text;
 
 namespace CodeLoom.Fody
 {
-    public static class Extensions
+    public static class Helpers
     {
+        public static string GetUniqueFieldName(TypeDefinition typeDefinition, string baseName)
+        {
+            var partialName = $"<{baseName}>_field_";
+            var index = typeDefinition.Fields.Where(f => f.Name.StartsWith(partialName)).Count();
+            return partialName + index;
+        }
+
+        public static string GetUniquePropertyName(TypeDefinition typeDefinition, string baseName)
+        {
+            var partialName = $"<{baseName}>_prop_";
+            var index = typeDefinition.Properties.Where(f => f.Name.StartsWith(partialName)).Count();
+            return partialName + index;
+        }
+
+        public static string GetUniqueMethodName(TypeDefinition typeDefinition, string baseName)
+        {
+            var partialName = $"<{baseName}>_method_";
+            var index = typeDefinition.Methods.Where(f => f.Name.StartsWith(partialName)).Count();
+            return partialName + index;
+        }
+
         public static void Append(this ILProcessor ilProcessor, IEnumerable<Instruction> instructions)
         {
             foreach (var instruction in instructions)
@@ -34,8 +55,28 @@ namespace CodeLoom.Fody
             }
         }
 
+        public static TypeReference TryGetClosedGenericType(this TypeReference type, MethodReference closedGenericMethod, ModuleDefinition moduleDefinition)
+        {
+            try
+            {
+                return GetClosedGenericType(type, closedGenericMethod, moduleDefinition);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public static TypeReference GetClosedGenericType(this TypeReference type, MethodReference closedGenericMethod, ModuleDefinition moduleDefinition)
         {
+            if (type.IsByReference)
+            {
+                var refType = (type as ByReferenceType).ElementType.GetClosedGenericType(closedGenericMethod, moduleDefinition);
+                var newType = new ByReferenceType(refType);
+
+                return newType;
+            }
+
             if (type.IsGenericInstance)
             {
                 var currentGenericType = type as GenericInstanceType;
@@ -65,8 +106,28 @@ namespace CodeLoom.Fody
             return type;
         }
 
+        public static TypeReference TryGetClosedGenericType(this TypeReference type, TypeReference closedGenericType, ModuleDefinition moduleDefinition)
+        {
+            try
+            {
+                return GetClosedGenericType(type, closedGenericType, moduleDefinition);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public static TypeReference GetClosedGenericType(this TypeReference type, TypeReference closedGenericType, ModuleDefinition moduleDefinition)
         {
+            if (type.IsByReference)
+            {
+                var refType = (type as ByReferenceType).ElementType.GetClosedGenericType(closedGenericType, moduleDefinition);
+                var newType = new ByReferenceType(refType);
+
+                return newType;
+            }
+
             if (type.IsGenericInstance)
             {
                 var currentGenericType = type as GenericInstanceType;
@@ -106,14 +167,6 @@ namespace CodeLoom.Fody
             return type;
         }
 
-        public static Type TryGetSystemType(this TypeDefinition typeDefinition)
-        {
-            var typeName = $"{typeDefinition.GetStandardTypeName()}, {typeDefinition.Module.Assembly.FullName}";
-            var type = Type.GetType(typeName);
-
-            return type;
-        }
-
         public static Type GetSystemType(this TypeDefinition typeDefinition)
         {
             var type = TryGetSystemType(typeDefinition);
@@ -124,13 +177,17 @@ namespace CodeLoom.Fody
             return type;
         }
 
+        public static Type TryGetSystemType(this TypeDefinition typeDefinition)
+        {
+            var typeName = $"{typeDefinition.GetStandardTypeName()}, {typeDefinition.Module.Assembly.FullName}";
+            var type = Type.GetType(typeName);
+
+            return type;
+        }
+
         public static FieldInfo GetFieldInfo(this FieldDefinition fieldDefinition)
         {
-            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic;
-            bindingFlags |= fieldDefinition.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
-
-            var declaringType = fieldDefinition.DeclaringType.GetSystemType();
-            var fieldInfo = declaringType.GetField(fieldDefinition.Name, bindingFlags);
+            var fieldInfo = TryGetFieldInfo(fieldDefinition);
 
             if (fieldInfo == null)
                 throw new KeyNotFoundException($"Could not find FieldInfo for field {fieldDefinition.FullName}");
@@ -138,13 +195,20 @@ namespace CodeLoom.Fody
             return fieldInfo;
         }
 
-        public static PropertyInfo GetPropertyInfo(this PropertyDefinition propertyDefinition)
+        public static FieldInfo TryGetFieldInfo(this FieldDefinition fieldDefinition)
         {
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic;
-            bindingFlags |= !propertyDefinition.HasThis ? BindingFlags.Static : BindingFlags.Instance;
+            bindingFlags |= fieldDefinition.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
 
-            var declaringType = propertyDefinition.DeclaringType.GetSystemType();
-            var propertyInfo = declaringType.GetProperty(propertyDefinition.Name, bindingFlags);
+            var declaringType = fieldDefinition.DeclaringType.GetSystemType();
+            var fieldInfo = declaringType.GetField(fieldDefinition.Name, bindingFlags);
+
+            return fieldInfo;
+        }
+
+        public static PropertyInfo GetPropertyInfo(this PropertyDefinition propertyDefinition)
+        {
+            var propertyInfo = TryGetPropertyInfo(propertyDefinition);
 
             if (propertyInfo == null)
                 throw new KeyNotFoundException($"Could not find PropertyInfo for property {propertyDefinition.FullName}");
@@ -152,9 +216,57 @@ namespace CodeLoom.Fody
             return propertyInfo;
         }
 
+        public static PropertyInfo TryGetPropertyInfo(this PropertyDefinition propertyDefinition)
+        {
+            PropertyInfo propertyInfo = null;
+
+            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic;
+            bindingFlags |= !propertyDefinition.HasThis ? BindingFlags.Static : BindingFlags.Instance;
+
+            var declaringType = propertyDefinition.DeclaringType.GetSystemType();
+
+            foreach (var property in declaringType.GetProperties(bindingFlags))
+            {
+                if (property.Name != propertyDefinition.Name)
+                    continue;
+
+                var propertyParameters = property.GetMethod.GetParameters();
+                if (propertyParameters.Length != propertyDefinition.Parameters.Count)
+                    continue;
+
+                var definitionReturnType = propertyDefinition.PropertyType;
+                var propertyReturnType = property.PropertyType;
+                if (!definitionReturnType.SameTypeAs(propertyReturnType))
+                    continue;
+
+                for (int i = 0; i < propertyDefinition.Parameters.Count; i++)
+                {
+                    var definitionParameterType = propertyDefinition.Parameters[i].ParameterType;
+                    var propertyParameterType = propertyParameters[i].ParameterType;
+                    if (!definitionParameterType.SameTypeAs(propertyParameterType))
+                        continue;
+                }
+
+                propertyInfo = property;
+                break;
+            }
+
+            return propertyInfo;
+        }
+
         public static MethodBase GetMethodBase(this MethodDefinition methodDefinition)
         {
-            MethodBase result = null;
+            var methodInfo = TryGetMethodBase(methodDefinition);
+
+            if (methodInfo == null)
+                throw new KeyNotFoundException($"Could not find MethodInfo for method {methodDefinition.FullName}");
+
+            return methodInfo;
+        }
+
+        public static MethodBase TryGetMethodBase(this MethodDefinition methodDefinition)
+        {
+            MethodBase methodInfo = null;
 
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic;
             bindingFlags |= methodDefinition.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
@@ -168,7 +280,7 @@ namespace CodeLoom.Fody
                     if (!ctor.CompareParameters(methodDefinition))
                         continue;
 
-                    result = ctor;
+                    methodInfo = ctor;
                     break;
                 }
             }
@@ -182,21 +294,24 @@ namespace CodeLoom.Fody
                     if (!method.CompareParameters(methodDefinition))
                         continue;
 
-                    result = method;
+                    methodInfo = method;
                     break;
                 }
             }
 
-            if (result == null)
-                throw new KeyNotFoundException($"Could not find MethodInfo for method {methodDefinition.FullName}");
-
-            return result;
+            return methodInfo;
         }
 
         public static string GetSimpleTypeName(this TypeReference typeReference)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("{0}.{1}", typeReference.Namespace, typeReference.Name);
+
+            if (typeReference.IsGenericParameter && !string.IsNullOrWhiteSpace(typeReference.DeclaringType?.Namespace))
+                sb.AppendFormat("{0}.", typeReference.DeclaringType.Namespace);
+            else if (!string.IsNullOrWhiteSpace(typeReference.Namespace))
+                sb.AppendFormat("{0}.", typeReference.Namespace);
+
+            sb.Append(typeReference.Name);
 
             var genericTypeRef = typeReference as GenericInstanceType;
 
@@ -222,7 +337,11 @@ namespace CodeLoom.Fody
         public static string GetSimpleTypeName(this Type type)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("{0}.{1}", type.Namespace, type.Name);
+
+            if (!string.IsNullOrWhiteSpace(type.Namespace))
+                sb.AppendFormat("{0}.", type.Namespace);
+
+            sb.Append(type.Name);
 
             if (type.GenericTypeArguments.Length > 0)
             {
@@ -280,6 +399,53 @@ namespace CodeLoom.Fody
             return true;
         }
 
+        public static bool SameTypeAs(this TypeReference type1, Type type2)
+        {
+            if (type1.GetSimpleTypeName() != type2.GetSimpleTypeName())
+                return false;
+
+            string type1Assembly = null;
+            if (type1.Scope is ModuleDefinition)
+                type1Assembly = (type1.Scope as ModuleDefinition).Assembly.Name.FullName;
+            else if (type1.Scope is AssemblyNameReference)
+                type1Assembly = (type1.Scope as AssemblyNameReference).FullName;
+
+            if (type1Assembly == null || type1Assembly != type2.Assembly.FullName)
+                return false;
+
+            if (type1.IsGenericInstance && !type2.IsGenericType)
+                return false;
+
+            if (!type1.IsGenericInstance && type2.IsGenericType)
+                return false;
+
+            if (type1.IsGenericParameter && !type2.IsGenericParameter)
+                return false;
+
+            if (!type1.IsGenericParameter && type2.IsGenericParameter)
+                return false;
+
+            if (type1.IsGenericInstance)
+            {
+                var genericType1 = type1 as GenericInstanceType;
+                var type1Args = genericType1.GenericArguments;
+                var type2Args = type2.GetGenericArguments();
+
+                if (type1Args.Count != type2Args.Length)
+                    return false;
+
+                for (int i = 0; i < type1Args.Count; i++)
+                {
+                    var type1Arg = type1Args[i];
+                    var type2Arg = type2Args[i];
+
+                    if (!type1Arg.SameTypeAs(type2Arg)) return false;
+                }
+            }
+
+            return true;
+        }
+
         private static bool CompareParameters(this MethodBase method, MethodDefinition methodDefinition)
         {
             var parameters = method.GetParameters();
@@ -291,10 +457,9 @@ namespace CodeLoom.Fody
             {
                 var parameter = parameters[i];
                 var definitionParameter = definitionParameters[i];
-                var parameterTypeRef = methodDefinition.Module.ImportReference(parameter.ParameterType);
 
                 if (parameter.Name != definitionParameter.Name) return false;
-                if (!parameterTypeRef.SameTypeAs(definitionParameter.ParameterType)) return false;
+                if (!definitionParameter.ParameterType.SameTypeAs(parameter.ParameterType)) return false;
             }
 
             if (method.IsGenericMethod)
@@ -308,9 +473,8 @@ namespace CodeLoom.Fody
                 {
                     var genericParameterType = genericParameters[i];
                     var definitionGenericParameter = definitionGenericParameters[i];
-                    var genericParameterTypeRef = methodDefinition.Module.ImportReference(genericParameterType);
 
-                    if (!genericParameterTypeRef.SameTypeAs(definitionGenericParameter)) return false;
+                    if (!definitionGenericParameter.SameTypeAs(genericParameterType)) return false;
                 }
             }
 

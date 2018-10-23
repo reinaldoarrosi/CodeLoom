@@ -31,6 +31,12 @@ namespace CodeLoom.Fody
                 return;
             }
 
+            if (type.IsInterface)
+            {
+                ModuleWeaver.LogInfo($"Type {typeDefinition.FullName} will not be weaved because it is an interface");
+                return;
+            }
+
             var typeAspects = ModuleWeaver.Setup.GetAspects(type);
             foreach (var aspect in typeAspects)
             {
@@ -50,11 +56,14 @@ namespace CodeLoom.Fody
 
         private void ApplyAspect(TypeDefinition typeDefinition, Type type, ImplementInterfaceAspect aspect)
         {
-            var aspectInstanceField = AddAspectField(typeDefinition, aspect);
-            ImplementInterfaces(typeDefinition, aspectInstanceField, aspect);
+            var aspectInstanceField = CreateAspectField(typeDefinition, aspect);
+            typeDefinition.Fields.Add(aspectInstanceField);
+
+            var implemented = ImplementInterfaces(typeDefinition, aspectInstanceField, aspect);
+            if (!implemented) typeDefinition.Fields.Remove(aspectInstanceField);
         }
 
-        private FieldDefinition AddAspectField(TypeDefinition typeDefinition, ImplementInterfaceAspect aspect)
+        private FieldDefinition CreateAspectField(TypeDefinition typeDefinition, ImplementInterfaceAspect aspect)
         {
             ModuleWeaver.LogInfo($"Creating private field for aspect {aspect.GetType().FullName} in {typeDefinition.FullName}");
 
@@ -68,8 +77,8 @@ namespace CodeLoom.Fody
             // Creates a private field which will contain an instance of the aspect
             // This instance will then be used to implement the interfaces
             // IOW, the type that is being weaved will work as a proxy to this instance
-            var fieldDefinition = new FieldDefinition($"<{aspectTypeRef.GetSimpleTypeName()}>k_instance", Mono.Cecil.FieldAttributes.Private, aspectTypeRef);
-            typeDefinition.Fields.Add(fieldDefinition);
+            var aspectFieldName = Helpers.GetUniqueFieldName(typeDefinition, aspect.GetType().Name);
+            var fieldDefinition = new FieldDefinition(aspectFieldName, Mono.Cecil.FieldAttributes.Private, aspectTypeRef);
 
             // Adds the field initialization code to every ctor present in the type that is being weaved
             // This is equivalent to initializing a field directly in its declaration e.g. "private MyAspect _aspect = new MyAspect();"
@@ -89,9 +98,10 @@ namespace CodeLoom.Fody
             return fieldDefinition;
         }
 
-        private void ImplementInterfaces(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, ImplementInterfaceAspect aspect)
+        private bool ImplementInterfaces(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, ImplementInterfaceAspect aspect)
         {
             var interfaces = aspect.GetType().GetInterfaces();
+            var implemented = false;
 
             foreach (var interfaceType in interfaces)
             {
@@ -108,10 +118,13 @@ namespace CodeLoom.Fody
                     continue;
                 }
 
+                implemented = true;
                 typeDefinition.Interfaces.Add(new InterfaceImplementation(interfaceTypeRef));
                 ImplementInterfaceProperties(typeDefinition, aspectInstanceField, aspect, interfaceTypeRef);
                 ImplementInterfaceMethods(typeDefinition, aspectInstanceField, aspect, interfaceTypeRef);
             }
+
+            return implemented;
         }
 
         private void ImplementInterfaceProperties(TypeDefinition typeDefinition, FieldDefinition aspectInstanceField, ImplementInterfaceAspect aspect, TypeReference interfaceTypeRef)

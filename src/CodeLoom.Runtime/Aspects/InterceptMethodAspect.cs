@@ -9,6 +9,6 @@ namespace CodeLoom.Aspects
 {
     public abstract class InterceptMethodAspect
     {
-        protected abstract void OnMethodInvoked(MethodContext context);
+        public abstract void OnMethodInvoked(MethodContext context);
     }
 }

@@ -9,8 +9,8 @@ namespace CodeLoom.Aspects
 {
     public abstract class InterceptPropertyAspect
     {
-        protected abstract void OnGet(PropertyContext context);
+        public abstract void OnGet(PropertyContext context);
 
-        protected abstract void OnSet(PropertyContext context);
+        public abstract void OnSet(PropertyContext context);
     }
 }
