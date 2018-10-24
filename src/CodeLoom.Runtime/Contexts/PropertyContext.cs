@@ -9,13 +9,15 @@ namespace CodeLoom.Contexts
 {
     public class PropertyContext
     {
-        public PropertyContext(object instance, Arguments arguments)
+        public PropertyContext(object instance, PropertyInfo property, Arguments arguments)
         {
             Instance = instance;
+            Property = property;
             Arguments = arguments;
         }
 
         public object Instance { get; private set; }
+        public PropertyInfo Property { get; private set; }
         public Arguments Arguments { get; private set; }
         public object ReturnValue { get; private set; }
 

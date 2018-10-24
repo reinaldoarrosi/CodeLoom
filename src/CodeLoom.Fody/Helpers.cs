@@ -304,12 +304,27 @@ namespace CodeLoom.Fody
 
         public static string GetSimpleTypeName(this TypeReference typeReference)
         {
+            if (typeReference.IsByReference)
+            {
+                var byRefType = typeReference as ByReferenceType;
+                return byRefType.ElementType.GetSimpleTypeName() + "&";
+            }
+
             StringBuilder sb = new StringBuilder();
 
-            if (typeReference.IsGenericParameter && !string.IsNullOrWhiteSpace(typeReference.DeclaringType?.Namespace))
-                sb.AppendFormat("{0}.", typeReference.DeclaringType.Namespace);
+            if (typeReference.IsGenericParameter)
+            {
+                var genericParameter = typeReference as GenericParameter;
+
+                if (!string.IsNullOrWhiteSpace(genericParameter.DeclaringMethod?.DeclaringType?.Namespace))
+                    sb.AppendFormat("{0}.", genericParameter.DeclaringMethod.DeclaringType.Namespace);
+                else if (!string.IsNullOrWhiteSpace(genericParameter.DeclaringType?.Namespace))
+                    sb.AppendFormat("{0}.", genericParameter.DeclaringType.Namespace);
+            }
             else if (!string.IsNullOrWhiteSpace(typeReference.Namespace))
+            {
                 sb.AppendFormat("{0}.", typeReference.Namespace);
+            }
 
             sb.Append(typeReference.Name);
 
@@ -336,6 +351,11 @@ namespace CodeLoom.Fody
 
         public static string GetSimpleTypeName(this Type type)
         {
+            if (type.IsByRef)
+            {
+                return type.GetElementType().GetSimpleTypeName() + "&";
+            }
+
             StringBuilder sb = new StringBuilder();
 
             if (!string.IsNullOrWhiteSpace(type.Namespace))
@@ -411,6 +431,12 @@ namespace CodeLoom.Fody
                 type1Assembly = (type1.Scope as AssemblyNameReference).FullName;
 
             if (type1Assembly == null || type1Assembly != type2.Assembly.FullName)
+                return false;
+
+            if (type1.IsByReference && !type2.IsByRef)
+                return false;
+
+            if (!type1.IsByReference && type2.IsByRef)
                 return false;
 
             if (type1.IsGenericInstance && !type2.IsGenericType)

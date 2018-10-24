@@ -24,20 +24,28 @@ namespace TestAssembly.ClassesToWeave
         public List<SimpleClass> ParentMethodReturnSimpleClassList() { return new List<SimpleClass>(); }
     }
 
-    public class ClassWithInterceptedMethods : ParentMethodsClass
+    public class ClassWithInterceptedMethods //: ParentMethodsClass
     {
-        public void MethodReturnVoid() { return; }
+        //public void MethodReturnVoid() { return; }
 
-        public int MethodReturnInt() { return 0; }
+        //public int MethodReturnInt() { return 0; }
 
-        public SimpleClass MethodReturnSimpleClass() { return new SimpleClass(); }
+        //public SimpleClass MethodReturnSimpleClass() { return new SimpleClass(); }
 
-        public int[] MethodReturnIntArray() { return new int[0]; }
+        //public int[] MethodReturnIntArray() { return new int[0]; }
 
-        public SimpleClass[] MethodReturnSimpleClassArray() { return new SimpleClass[0]; }
+        //public SimpleClass[] MethodReturnSimpleClassArray() { return new SimpleClass[0]; }
 
-        public List<int> MethodReturnIntList() { return new List<int>(); }
+        //public List<int> MethodReturnIntList() { return new List<int>(); }
 
-        public List<SimpleClass> MethodReturnSimpleClassList() { return new List<SimpleClass>(); }
+        //public List<SimpleClass> MethodReturnSimpleClassList() { return new List<SimpleClass>(); }
+
+        public int AAAAAAAAA(ref int a, ref string b, ref List<SimpleClass> c, out int a1, out string b1, out List<SimpleClass> c1)
+        {
+            a1 = 0;
+            b1 = null;
+            c1 = null;
+            return 0;
+        }
     }
 }

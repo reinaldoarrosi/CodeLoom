@@ -83,13 +83,13 @@ namespace CodeLoom.Fody
                     if (property.GetMethod != null && !property.GetMethod.IsAbstract)
                     {
                         propertyGetterProceed = CreatePropertyGetterProceedMethod(typeDefinition, propertyDefinition);
-                        RewriteOriginalMethod(typeDefinition, propertyDefinition.GetMethod, aspectField, pipelineRunGetterMethodRef);
+                        RewriteOriginalMethod(typeDefinition, propertyDefinition, propertyDefinition.GetMethod, aspectField, pipelineRunGetterMethodRef);
                     }
 
                     if (property.SetMethod != null && !property.SetMethod.IsAbstract)
                     {
                         propertySetterProceed = CreatePropertySetterProceedMethod(typeDefinition, propertyDefinition);
-                        RewriteOriginalMethod(typeDefinition, propertyDefinition.SetMethod, aspectField, pipelineRunSetterMethodRef);
+                        RewriteOriginalMethod(typeDefinition, propertyDefinition, propertyDefinition.SetMethod, aspectField, pipelineRunSetterMethodRef);
                     }
 
                     AddAspectFieldInitialization(typeDefinition, aspectField, aspects, propertyGetterProceed, propertySetterProceed, !propertyDefinition.HasThis);
@@ -238,10 +238,10 @@ namespace CodeLoom.Fody
 
         private MethodDefinition CreatePropertyGetterProceedMethod(TypeDefinition typeDefinition, PropertyDefinition property)
         {
-            var clonedMethod = CloneMethod(typeDefinition, property.GetMethod);
+            var clonedMethod = CloneMethod(typeDefinition, property, property.GetMethod);
             typeDefinition.Methods.Add(clonedMethod);
 
-            var proceedMethod = CreateProceedMethod(typeDefinition, clonedMethod);
+            var proceedMethod = CreateProceedMethod(typeDefinition, property, clonedMethod);
             typeDefinition.Methods.Add(proceedMethod);
 
             return proceedMethod;
@@ -249,16 +249,16 @@ namespace CodeLoom.Fody
 
         private MethodDefinition CreatePropertySetterProceedMethod(TypeDefinition typeDefinition, PropertyDefinition property)
         {
-            var clonedMethod = CloneMethod(typeDefinition, property.GetMethod);
+            var clonedMethod = CloneMethod(typeDefinition, property, property.GetMethod);
             typeDefinition.Methods.Add(clonedMethod);
 
-            var proceedMethod = CreateProceedMethod(typeDefinition, clonedMethod);
+            var proceedMethod = CreateProceedMethod(typeDefinition, property, clonedMethod);
             typeDefinition.Methods.Add(proceedMethod);
 
             return proceedMethod;
         }
 
-        private MethodDefinition CloneMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod)
+        private MethodDefinition CloneMethod(TypeDefinition typeDefinition, PropertyDefinition propertyDefinition, MethodDefinition originalMethod)
         {
             var attributes = originalMethod.Attributes;
             attributes &= ~MethodAttributes.Public;
@@ -316,7 +316,7 @@ namespace CodeLoom.Fody
             return clone;
         }
 
-        private MethodDefinition CreateProceedMethod(TypeDefinition typeDefinition, MethodDefinition originalMethodClone)
+        private MethodDefinition CreateProceedMethod(TypeDefinition typeDefinition, PropertyDefinition propertyDefinition, MethodDefinition originalMethodClone)
         {
             var attributes = originalMethodClone.Attributes;
             attributes &= ~MethodAttributes.Public;
@@ -351,8 +351,8 @@ namespace CodeLoom.Fody
             proceedMethod.Body.Variables.Add(argumentsVar);
 
             var getArgumentsMethod = ModuleDefinition.ImportReference(typeof(PropertyContext).GetProperty(nameof(PropertyContext.Arguments)).GetMethod);
-            var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgumentValue), new Type[] { typeof(int) }));
-            var setArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.SetArgumentValue), new Type[] { typeof(int), typeof(object) }));
+            var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgument), new Type[] { typeof(int) }));
+            var setArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.SetArgument), new Type[] { typeof(int), typeof(object) }));
 
             var ilProcessor = proceedMethod.Body.GetILProcessor();
 
@@ -442,72 +442,59 @@ namespace CodeLoom.Fody
             return proceedMethod;
         }
 
-        private void RewriteOriginalMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod, FieldDefinition aspectField, MethodReference aspectRunMethod)
+        private void RewriteOriginalMethod(TypeDefinition typeDefinition, PropertyDefinition propertyDefinition, MethodDefinition originalMethod, FieldDefinition aspectField, MethodReference aspectRunMethod)
         {
             var ilProcessor = originalMethod.Body.GetILProcessor();
             originalMethod.Body.Instructions.Clear();
             originalMethod.Body.Variables.Clear();
             originalMethod.Body.InitLocals = true;
 
-            // creates a string[] containing the name of the parameters (this will be used to instantiate Arguments)
-            var parameterNamesArrayVar = new VariableDefinition(new ArrayType(ModuleWeaver.TypeSystem.StringReference));
-            originalMethod.Body.Variables.Add(parameterNamesArrayVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newarr, ModuleWeaver.TypeSystem.StringReference));
-            foreach (var parameter in originalMethod.Parameters)
-            {
-                ilProcessor.Append(Instruction.Create(OpCodes.Dup));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldstr, parameter.Name));
-                ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
-            }
-            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterNamesArrayVar));
-
-            // creates a Type[] containing the Type of the parameters (this will be used to instantiate Arguments)
-            var typeTypeRef = ModuleDefinition.ImportReference(typeof(Type));
-            var parameterTypesArrayVar = new VariableDefinition(new ArrayType(typeTypeRef));
-            var getTypeFromHandleMethodRef = ModuleDefinition.ImportReference(typeof(Type).GetMethod("GetTypeFromHandle"));
-            originalMethod.Body.Variables.Add(parameterTypesArrayVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newarr, typeTypeRef));
-            foreach (var parameter in originalMethod.Parameters)
-            {
-                ilProcessor.Append(Instruction.Create(OpCodes.Dup));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldtoken, parameter.ParameterType));
-                ilProcessor.Append(Instruction.Create(OpCodes.Call, getTypeFromHandleMethodRef));
-                ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
-            }
-            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterTypesArrayVar));
-
-            // creates an object[] containing the value of the parameters (this will be used to instantiate Arguments)
-            var parameterValuesArrayVar = new VariableDefinition(new ArrayType(ModuleWeaver.TypeSystem.ObjectReference));
-            originalMethod.Body.Variables.Add(parameterValuesArrayVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newarr, ModuleWeaver.TypeSystem.ObjectReference));
-            foreach (var parameter in originalMethod.Parameters)
-            {
-                ilProcessor.Append(Instruction.Create(OpCodes.Dup));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldarg, parameter));
-
-                if (parameter.ParameterType.IsValueType)
-                    ilProcessor.Append(Instruction.Create(OpCodes.Box, parameter.ParameterType));
-
-                ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
-            }
-            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterValuesArrayVar));
-
-            // creates the Arguments instance that will be used to create the PropertyContext
+            // creates a variable that will hold the Arguments instance
             var argumentsTypeRef = ModuleDefinition.ImportReference(typeof(Arguments));
             var argumentsCtor = ModuleDefinition.ImportReference(typeof(Arguments).GetConstructors().First());
             var argumentsVar = new VariableDefinition(argumentsTypeRef);
             originalMethod.Body.Variables.Add(argumentsVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, parameterNamesArrayVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, parameterTypesArrayVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, parameterValuesArrayVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newobj, argumentsCtor));
-            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, argumentsVar));
+
+            if (originalMethod.Parameters.Count > 0)
+            {
+                // creates an object[] containing the value of the parameters (this will be used to instantiate Arguments)
+                var parameterValuesArrayVar = new VariableDefinition(new ArrayType(ModuleWeaver.TypeSystem.ObjectReference));
+                originalMethod.Body.Variables.Add(parameterValuesArrayVar);
+                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
+                ilProcessor.Append(Instruction.Create(OpCodes.Newarr, ModuleWeaver.TypeSystem.ObjectReference));
+                foreach (var parameter in originalMethod.Parameters)
+                {
+                    ilProcessor.Append(Instruction.Create(OpCodes.Dup));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldarg, parameter));
+
+                    if (parameter.ParameterType.IsValueType)
+                        ilProcessor.Append(Instruction.Create(OpCodes.Box, parameter.ParameterType));
+
+                    ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
+                }
+                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterValuesArrayVar));
+
+                // creates the Arguments instance and stores it into the argumentsVar
+                ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, parameterValuesArrayVar));
+                ilProcessor.Append(Instruction.Create(OpCodes.Newobj, argumentsCtor));
+                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, argumentsVar));
+            }
+            else
+            {
+                // stores the value of Arguments.Empty into the argumentsVar
+                var emptyArgumentsField = ModuleDefinition.ImportReference(typeof(Arguments).GetField("Empty"));
+                ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, emptyArgumentsField));
+                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, argumentsVar));
+            }
+            
+            // creates a variable holding the reference to the PropertyInfo that represents the property being executed (this will be used to instantiate the PropertyContext)
+            var propertyInfoTypeRef = ModuleDefinition.ImportReference(typeof(System.Reflection.PropertyInfo));
+            var propertyInfoVar = new VariableDefinition(propertyInfoTypeRef);
+            var propertyInfoCacheField = ModuleWeaver.CreatePropertyInfoCacheField(propertyDefinition);
+            originalMethod.Body.Variables.Add(propertyInfoVar);
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, propertyInfoCacheField));
+            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, propertyInfoVar));
 
             // creates the PropertyContext instance
             var contextTypeRef = ModuleDefinition.ImportReference(typeof(PropertyContext));
@@ -516,6 +503,7 @@ namespace CodeLoom.Fody
             originalMethod.Body.Variables.Add(contextVar);
             if (originalMethod.HasThis) ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_0));
             if (!originalMethod.HasThis) ilProcessor.Append(Instruction.Create(OpCodes.Ldnull));
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, propertyInfoVar));
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, argumentsVar));
             ilProcessor.Append(Instruction.Create(OpCodes.Newobj, contextCtor));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, contextVar));

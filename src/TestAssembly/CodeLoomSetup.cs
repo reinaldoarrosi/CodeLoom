@@ -18,45 +18,57 @@ namespace TestAssembly
 {
     public abstract class Test<T>
     {
-        private static InterceptPropertyPipeline aspect;
+        private InterceptMethodPipeline aspect;
 
-        static Test()
+        Test()
         {
-            aspect = new InterceptPropertyPipeline(new[] { new InterceptPropertiesAspect() }, proceed, null);
+            aspect = new InterceptMethodPipeline(new[] { new InterceptMethodsAspect() }, proceed_Method);
         }
 
-        static int original(int a, SimpleClass b, int[] c, SimpleClass d, List<int> e, List<SimpleClass> f)
+        int Method(ref int a, ref string b, ref List<SimpleClass> c, out int a1, out string b1, out List<SimpleClass> c1)
         {
-            var names = new string[] { nameof(a), nameof(b), nameof(c), nameof(d), nameof(e), nameof(f) };
-            var types = new Type[] { typeof(int), typeof(SimpleClass), typeof(int[]), typeof(SimpleClass), typeof(List<int>), typeof(List<SimpleClass>) };
-            var values = new object[] { a, b, c, d, e, f };
-            var arguments = new Arguments(names, types, values);
-            var context = new PropertyContext(null, arguments);
+            var values = new object[] { a, b, c, null, null, null };
+            var arguments = new Arguments(values);
+            var context = new MethodContext(this, null, arguments);
 
-            aspect.RunGetter(context);
+            aspect.Run(context);
 
+            a = (int)arguments.GetArgument(0);
+            b = (string)arguments.GetArgument(1);
+            c = (List<SimpleClass>)arguments.GetArgument(2);
+            a1 = (int)arguments.GetArgument(3);
+            b1 = (string)arguments.GetArgument(4);
+            c1 = (List<SimpleClass>)arguments.GetArgument(5);
             return (int)context.ReturnValue;
         }
 
-        static void proceed(PropertyContext context)
+        int original_Method(ref int a, ref string b, ref List<SimpleClass> c, out int a1, out string b1, out List<SimpleClass> c1)
         {
-            Arguments args = context.Arguments;
-            int a = (int)args.GetArgumentValue(0);
-            SimpleClass b = (SimpleClass)args.GetArgumentValue(1);
-            int[] c = (int[])args.GetArgumentValue(2);
-            SimpleClass d = (SimpleClass)args.GetArgumentValue(3);
-            List<int> e = (List<int>)args.GetArgumentValue(4);
-            List<SimpleClass> f = (List<SimpleClass>)args.GetArgumentValue(5);
+            a1 = 0;
+            b1 = null;
+            c1 = null;
+            return 0;
+        }
 
-            var ret = original(a,b,c,d,e,f);
+        void proceed_Method(MethodContext context)
+        {
+            var arguments = context.Arguments;
+            var a = (int)arguments.GetArgument(0);
+            var b = (string)arguments.GetArgument(1);
+            var c = (List<SimpleClass>)arguments.GetArgument(2);
+            int a1;
+            string b1;
+            List<SimpleClass> c1;
 
-            args.SetArgumentValue(0, a);
-            args.SetArgumentValue(1, b);
-            args.SetArgumentValue(2, c);
-            args.SetArgumentValue(3, d);
-            args.SetArgumentValue(4, e);
-            args.SetArgumentValue(5, f);
-            context.SetReturnValue(ret);
+            var result = original_Method(ref a, ref b, ref c, out a1, out b1, out c1);
+
+            arguments.SetArgument(0, a);
+            arguments.SetArgument(1, b);
+            arguments.SetArgument(2, c);
+            arguments.SetArgument(3, a1);
+            arguments.SetArgument(4, b1);
+            arguments.SetArgument(5, c1);
+            context.SetReturnValue(result);
         }
     }
 
@@ -79,6 +91,8 @@ namespace TestAssembly
 
         public override IEnumerable<InterceptPropertyAspect> GetAspects(PropertyInfo property)
         {
+            yield break;
+
             if (property.DeclaringType == typeof(ClassWithInterceptedProperties))
                 yield return new InterceptPropertiesAspect();
 

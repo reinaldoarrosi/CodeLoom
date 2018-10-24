@@ -316,8 +316,8 @@ namespace CodeLoom.Fody
             proceedMethod.Body.Variables.Add(argumentsVar);
 
             var getArgumentsMethod = ModuleDefinition.ImportReference(typeof(MethodContext).GetProperty(nameof(MethodContext.Arguments)).GetMethod);
-            var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgumentValue), new Type[] { typeof(int) }));
-            var setArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.SetArgumentValue), new Type[] { typeof(int), typeof(object) }));
+            var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgument), new Type[] { typeof(int) }));
+            var setArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.SetArgument), new Type[] { typeof(int), typeof(object) }));
 
             var ilProcessor = proceedMethod.Body.GetILProcessor();
 
@@ -337,16 +337,19 @@ namespace CodeLoom.Fody
                 localParametersVariables.Add(parameterVar);
                 proceedMethod.Body.Variables.Add(parameterVar);
 
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, argumentsVar));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
-                ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getArgumentValueMethod));
+                if (!parameter.IsOut)
+                {
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, argumentsVar));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getArgumentValueMethod));
 
-                if (realParameterType.IsValueType)
-                    ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, realParameterType));
-                else
-                    ilProcessor.Append(Instruction.Create(OpCodes.Castclass, realParameterType));
+                    if (realParameterType.IsValueType)
+                        ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, realParameterType));
+                    else
+                        ilProcessor.Append(Instruction.Create(OpCodes.Castclass, realParameterType));
 
-                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterVar));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterVar));
+                }
             }
 
             // prepares to call the original method, loading "this" and the local variables into the stack
@@ -432,65 +435,63 @@ namespace CodeLoom.Fody
                 }
             }
 
-            // creates a string[] containing the name of the parameters (this will be used to instantiate Arguments)
-            var parameterNamesArrayVar = new VariableDefinition(new ArrayType(ModuleWeaver.TypeSystem.StringReference));
-            originalMethod.Body.Variables.Add(parameterNamesArrayVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newarr, ModuleWeaver.TypeSystem.StringReference));
-            foreach (var parameter in originalMethod.Parameters)
-            {
-                ilProcessor.Append(Instruction.Create(OpCodes.Dup));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldstr, parameter.Name));
-                ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
-            }
-            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterNamesArrayVar));
-
-            // creates a Type[] containing the Type of the parameters (this will be used to instantiate Arguments)
-            var typeTypeRef = ModuleDefinition.ImportReference(typeof(Type));
-            var parameterTypesArrayVar = new VariableDefinition(new ArrayType(typeTypeRef));
-            var getTypeFromHandleMethodRef = ModuleDefinition.ImportReference(typeof(Type).GetMethod("GetTypeFromHandle"));
-            originalMethod.Body.Variables.Add(parameterTypesArrayVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newarr, typeTypeRef));
-            foreach (var parameter in originalMethod.Parameters)
-            {
-                ilProcessor.Append(Instruction.Create(OpCodes.Dup));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldtoken, parameter.ParameterType));
-                ilProcessor.Append(Instruction.Create(OpCodes.Call, getTypeFromHandleMethodRef));
-                ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
-            }
-            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterTypesArrayVar));
-
-            // creates an object[] containing the value of the parameters (this will be used to instantiate Arguments)
-            var parameterValuesArrayVar = new VariableDefinition(new ArrayType(ModuleWeaver.TypeSystem.ObjectReference));
-            originalMethod.Body.Variables.Add(parameterValuesArrayVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newarr, ModuleWeaver.TypeSystem.ObjectReference));
-            foreach (var parameter in originalMethod.Parameters)
-            {
-                ilProcessor.Append(Instruction.Create(OpCodes.Dup));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldarg, parameter));
-
-                if (parameter.ParameterType.IsValueType)
-                    ilProcessor.Append(Instruction.Create(OpCodes.Box, parameter.ParameterType));
-
-                ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
-            }
-            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterValuesArrayVar));
-
-            // creates the Arguments instance that will be used to create the MethodContext
+            // creates a variable that will hold the Arguments instance
             var argumentsTypeRef = ModuleDefinition.ImportReference(typeof(Arguments));
             var argumentsCtor = ModuleDefinition.ImportReference(typeof(Arguments).GetConstructors().First());
             var argumentsVar = new VariableDefinition(argumentsTypeRef);
             originalMethod.Body.Variables.Add(argumentsVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, parameterNamesArrayVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, parameterTypesArrayVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, parameterValuesArrayVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newobj, argumentsCtor));
-            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, argumentsVar));
+
+            if (originalMethod.Parameters.Count > 0)
+            {
+                // creates an object[] containing the value of the parameters (this will be used to instantiate Arguments)
+                var parameterValuesArrayVar = new VariableDefinition(new ArrayType(ModuleWeaver.TypeSystem.ObjectReference));
+                originalMethod.Body.Variables.Add(parameterValuesArrayVar);
+                ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
+                ilProcessor.Append(Instruction.Create(OpCodes.Newarr, ModuleWeaver.TypeSystem.ObjectReference));
+                foreach (var parameter in originalMethod.Parameters)
+                {
+                    ilProcessor.Append(Instruction.Create(OpCodes.Dup));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldarg, parameter));
+
+                    var realParameterType = parameter.ParameterType;
+                    if (realParameterType.IsByReference)
+                    {
+                        realParameterType = (realParameterType as ByReferenceType).ElementType;
+
+                        if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
+                            ilProcessor.Append(Instruction.Create(OpCodes.Ldobj, realParameterType));
+                        else
+                            ilProcessor.Append(Instruction.Create(OpCodes.Ldind_Ref));
+                    }
+
+                    if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
+                        ilProcessor.Append(Instruction.Create(OpCodes.Box, realParameterType));
+
+                    ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
+                }
+                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterValuesArrayVar));
+
+                // creates the Arguments instance and stores it into the argumentsVar
+                ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, parameterValuesArrayVar));
+                ilProcessor.Append(Instruction.Create(OpCodes.Newobj, argumentsCtor));
+                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, argumentsVar));
+            }
+            else
+            {
+                // stores the value of Arguments.Empty into the argumentsVar
+                var emptyArgumentsField = ModuleDefinition.ImportReference(typeof(Arguments).GetField("Empty"));
+                ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, emptyArgumentsField));
+                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, argumentsVar));
+            }
+
+            // creates a variable holding the reference to the MethodBase that represents the method being executed (this will be used to instantiate the MethodContext)
+            var methodBaseTypeRef = ModuleDefinition.ImportReference(typeof(System.Reflection.MethodBase));
+            var methodBaseVar = new VariableDefinition(methodBaseTypeRef);
+            var methodBaseCacheField = ModuleWeaver.CreateMethodBaseCacheField(originalMethod);
+            originalMethod.Body.Variables.Add(methodBaseVar);
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, methodBaseCacheField));
+            ilProcessor.Append(Instruction.Create(OpCodes.Stloc, methodBaseVar));
 
             // creates the MethodContext instance
             var contextTypeRef = ModuleDefinition.ImportReference(typeof(MethodContext));
@@ -499,6 +500,7 @@ namespace CodeLoom.Fody
             originalMethod.Body.Variables.Add(contextVar);
             if (originalMethod.HasThis) ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_0));
             if (!originalMethod.HasThis) ilProcessor.Append(Instruction.Create(OpCodes.Ldnull));
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, methodBaseVar));
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, argumentsVar));
             ilProcessor.Append(Instruction.Create(OpCodes.Newobj, contextCtor));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, contextVar));

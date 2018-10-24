@@ -9,13 +9,15 @@ namespace CodeLoom.Contexts
 {
     public class MethodContext
     {
-        public MethodContext(object instance, Arguments arguments)
+        public MethodContext(object instance, MethodBase method, Arguments arguments)
         {
             Instance = instance;
+            Method = method;
             Arguments = arguments;
         }
 
         public object Instance { get; private set; }
+        public MethodBase Method { get; private set; }
         public Arguments Arguments { get; private set; }
         public object ReturnValue { get; private set; }
 
