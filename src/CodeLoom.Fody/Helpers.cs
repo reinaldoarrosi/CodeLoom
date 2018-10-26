@@ -31,6 +31,13 @@ namespace CodeLoom.Fody
             return partialName + index;
         }
 
+        public static string GetUniqueBindingName(TypeDefinition typeDefinition, string baseName)
+        {
+            var partialName = $"<{baseName}>Binding";
+            var index = typeDefinition.NestedTypes.Where(t => t.Name.StartsWith(partialName)).Count();
+            return partialName + index;
+        }
+
         public static void Append(this ILProcessor ilProcessor, IEnumerable<Instruction> instructions)
         {
             foreach (var instruction in instructions)

@@ -58,30 +58,6 @@ namespace CodeLoom.Fody
             return Enumerable.Empty<string>();
         }
 
-        internal FieldReference CreateMethodBaseCacheField(MethodDefinition methodDefinition)
-        {
-            var fieldName = Helpers.GetUniqueFieldName(CachingType, methodDefinition.Name);
-            var fieldAttributes = FieldAttributes.Assembly | FieldAttributes.Static;
-            var fieldType = ModuleDefinition.ImportReference(typeof(System.Reflection.MethodBase));
-            var fieldDefinition = new FieldDefinition(fieldName, fieldAttributes, fieldType);
-            CachingType.Fields.Add(fieldDefinition);
-
-            var staticCtor = CachingType.GetStaticConstructor();
-            var getMethodFromHandle = ModuleDefinition.ImportReference(typeof(System.Reflection.MethodBase).GetMethod(nameof(System.Reflection.MethodBase.GetMethodFromHandle), new Type[] { typeof(RuntimeMethodHandle) }));
-            var instructions = new Instruction[]
-            {
-                Instruction.Create(OpCodes.Ldtoken, methodDefinition),
-                Instruction.Create(OpCodes.Call, getMethodFromHandle),
-                Instruction.Create(OpCodes.Stsfld, fieldDefinition)
-            };
-
-            var insertionPoint = staticCtor.Body.Instructions.First();
-            var ilProcessor = staticCtor.Body.GetILProcessor();
-            ilProcessor.InsertBefore(insertionPoint, instructions);
-
-            return fieldDefinition;
-        }
-
         internal FieldReference CreatePropertyInfoCacheField(PropertyDefinition propertyDefinition)
         {
             var fieldName = Helpers.GetUniqueFieldName(CachingType, propertyDefinition.Name);

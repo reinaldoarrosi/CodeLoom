@@ -1,10 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace TestAssemblyReference
 {
-    public class SimpleClass
+    public struct SimpleStruct
     {
-        public SimpleClass(int value)
+        public SimpleStruct(int value)
         {
             Value = value;
         }
@@ -13,7 +17,7 @@ namespace TestAssemblyReference
 
         public override string ToString()
         {
-            return $"SimpleClass={Value}";
+            return $"SimpleStruct={Value}";
         }
     }
 }

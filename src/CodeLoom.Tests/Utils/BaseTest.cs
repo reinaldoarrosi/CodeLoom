@@ -7,24 +7,74 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Mono.Cecil;
+using System.Reflection;
 
-namespace CodeLoom.Fody.Tests
+namespace CodeLoom.Tests
 {
+    public class AppDomainDelegate : MarshalByRefObject
+    {
+        public void Execute(Action action)
+        {
+            action();
+        }
+
+        public void Execute<T>(T parameter, Action<T> action)
+        {
+            action(parameter);
+        }
+
+        public T Execute<T>(Func<T> action)
+        {
+            return action();
+        }
+
+        public TResult Execute<T, TResult>(T parameter, Func<T, TResult> action)
+        {
+            return action(parameter);
+        }
+    }
+
     public abstract class BaseTest
     {
-        public static TestResult WeaveResult;
+        private static TestResult _weaveResult;
+        private static AppDomain _appDomain;        
 
         static BaseTest()
         {
             var weaver = new ModuleWeaver();
-            WeaveResult = weaver.ExecuteTestRun("TestAssembly.dll", beforeExecuteCallback: CopyRuntimeDLL, afterExecuteCallback: CopyRuntimeDLL);
+            _weaveResult = weaver.ExecuteTestRun("TestAssembly.dll", afterExecuteCallback: CopyDLLs);
+            _appDomain = CreateAppDomain(AppDomain.CurrentDomain.SetupInformation.ApplicationBase);
         }
 
-        private static void CopyRuntimeDLL(ModuleDefinition moduleDefinition)
+        public static void Execute(Action action)
+        {
+            var domainDelegate = (AppDomainDelegate)_appDomain.CreateInstanceAndUnwrap(
+                typeof(AppDomainDelegate).Assembly.FullName,
+                typeof(AppDomainDelegate).FullName
+            );
+
+            domainDelegate.Execute(action);
+        }
+
+        private static AppDomain CreateAppDomain(string appBase)
+        {
+            var appDomainSetup = new AppDomainSetup();
+            appDomainSetup.ApplicationBase = appBase + "/fodytemp";
+
+            var appDomain = AppDomain.CreateDomain("CodeLoom.Tests.AppDomain", null, appDomainSetup);
+
+            return appDomain;
+        }
+
+        private static void CopyDLLs(ModuleDefinition moduleDefinition)
         {
             if (!Directory.Exists("fodytemp")) Directory.CreateDirectory("fodytemp");
-            File.Copy("CodeLoom.Runtime.dll", "fodytemp\\CodeLoom.Runtime.dll", true);
-            File.Copy("TestAssemblyReference.dll", "fodytemp\\TestAssemblyReference.dll", true);
+
+            foreach (var item in Directory.GetFiles(".", "*.*"))
+            {
+                if (Path.GetFileName(item) == "TestAssembly.dll") continue;
+                File.Copy(item, $"./fodytemp/{Path.GetFileName(item)}", true);
+            }
         }
     }
 }

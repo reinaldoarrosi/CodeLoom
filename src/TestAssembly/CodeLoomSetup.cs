@@ -4,11 +4,9 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using CodeLoom;
 using CodeLoom.Aspects;
 using CodeLoom.Contexts;
-using CodeLoom.Pipelines;
-using TestAssembly.Aspects;
+using TestAssembly.Aspects.InterceptMethod;
 using TestAssembly.ClassesToWeave;
 using TestAssemblyReference;
 
@@ -16,109 +14,122 @@ using TestAssemblyReference;
 
 namespace TestAssembly
 {
-    public abstract class Test<T>
+    public class Test
     {
-        private InterceptMethodPipeline aspect;
-
-        Test()
+        public void Method1(ref int[] a, ref string[] c, ref SimpleClass[] e, ref SimpleStruct[] g)
         {
-            aspect = new InterceptMethodPipeline(new[] { new InterceptMethodsAspect() }, proceed_Method);
-        }
+            var v = new Arguments(new object[] {
+                new int [] { 1 },
+                new string [] { "a" },
+                new SimpleClass[] { new SimpleClass(1) },
+                new SimpleStruct[] { new SimpleStruct(2) }
+            });
 
-        int Method(ref int a, ref string b, ref List<SimpleClass> c, out int a1, out string b1, out List<SimpleClass> c1)
-        {
-            var values = new object[] { a, b, c, null, null, null };
-            var arguments = new Arguments(values);
-            var context = new MethodContext(this, null, arguments);
-
-            aspect.Run(context);
-
-            a = (int)arguments.GetArgument(0);
-            b = (string)arguments.GetArgument(1);
-            c = (List<SimpleClass>)arguments.GetArgument(2);
-            a1 = (int)arguments.GetArgument(3);
-            b1 = (string)arguments.GetArgument(4);
-            c1 = (List<SimpleClass>)arguments.GetArgument(5);
-            return (int)context.ReturnValue;
-        }
-
-        int original_Method(ref int a, ref string b, ref List<SimpleClass> c, out int a1, out string b1, out List<SimpleClass> c1)
-        {
-            a1 = 0;
-            b1 = null;
-            c1 = null;
-            return 0;
-        }
-
-        void proceed_Method(MethodContext context)
-        {
-            var arguments = context.Arguments;
-            var a = (int)arguments.GetArgument(0);
-            var b = (string)arguments.GetArgument(1);
-            var c = (List<SimpleClass>)arguments.GetArgument(2);
-            int a1;
-            string b1;
-            List<SimpleClass> c1;
-
-            var result = original_Method(ref a, ref b, ref c, out a1, out b1, out c1);
-
-            arguments.SetArgument(0, a);
-            arguments.SetArgument(1, b);
-            arguments.SetArgument(2, c);
-            arguments.SetArgument(3, a1);
-            arguments.SetArgument(4, b1);
-            arguments.SetArgument(5, c1);
-            context.SetReturnValue(result);
+            a = (int[])v.GetArgument(0);
+            c = (string[])v.GetArgument(2);
+            e = (SimpleClass[])v.GetArgument(4);
+            g = (SimpleStruct[])v.GetArgument(6);
         }
     }
 
     public class CodeLoomSetup : CodeLoom.CodeLoomSetup
     {
-        public override IEnumerable<ImplementInterfaceAspect> GetAspects(Type type)
-        {
-            if (type == typeof(ClassesToWeave.ClassWithWeavedProperties))
-                yield return new AddPropertiesToClassAspect();
-
-            if (type.FullName == typeof(ClassesToWeave.GenericClassWithWeavedProperties<,>).FullName)
-                yield return new AddPropertiesToClassAspect();
-
-            if (type == typeof(ClassesToWeave.ClassWithWeavedMethods))
-                yield return new AddMethodsToClassAspect();
-
-            if (type == typeof(ClassesToWeave.GenericClassWithWeavedMethods<,>))
-                yield return new AddMethodsToClassAspect();
-        }
-
-        public override IEnumerable<InterceptPropertyAspect> GetAspects(PropertyInfo property)
-        {
-            yield break;
-
-            if (property.DeclaringType == typeof(ClassWithInterceptedProperties))
-                yield return new InterceptPropertiesAspect();
-
-            if (property.DeclaringType == typeof(ParentClass))
-                yield return new InterceptPropertiesAspect();
-
-            if (property.DeclaringType == typeof(ClassWithInterceptedStaticProperties))
-                yield return new InterceptPropertiesAspect();
-
-            if (property.DeclaringType == typeof(ParentClassStatic))
-                yield return new InterceptPropertiesAspect();
-        }
-
         public override IEnumerable<InterceptMethodAspect> GetAspects(MethodBase method)
         {
-            if (method.DeclaringType == typeof(ClassWithInterceptedMethods))
-                yield return new InterceptMethodsAspect();
+            #region InterceptMethodsClass
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueType)))
+                yield return new ReturnOriginalValueTypeAspect();
 
-            if (method.DeclaringType == typeof(ParentMethodsClass))
-                yield return new InterceptMethodsAspect();
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefType)))
+                yield return new ReturnOriginalRefTypeAspect();
 
-            if (method.DeclaringType == typeof(ClassWithInterceptedStaticMethods))
-                yield return new InterceptMethodsAspect();
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalValueType)))
+                yield return new ReturnOriginalExternalValueTypeAspect();
 
-            if (method.DeclaringType == typeof(ParentMethodsClassStatic))
-                yield return new InterceptMethodsAspect();
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalRefType)))
+                yield return new ReturnOriginalExternalRefTypeAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueTypeArray)))
+                yield return new ReturnOriginalValueTypeArrayAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefTypeArray)))
+                yield return new ReturnOriginalRefTypeArrayAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalValueTypeArray)))
+                yield return new ReturnOriginalExternalValueTypeArrayAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalRefTypeArray)))
+                yield return new ReturnOriginalExternalRefTypeArrayAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueTypeList)))
+                yield return new ReturnOriginalValueTypeListAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefTypeList)))
+                yield return new ReturnOriginalRefTypeListAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalValueTypeList)))
+                yield return new ReturnOriginalExternalValueTypeListAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalRefTypeList)))
+                yield return new ReturnOriginalExternalRefTypeListAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedValueType)))
+                yield return new ReturnInterceptedValueTypeAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedRefType)))
+                yield return new ReturnInterceptedRefTypeAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalValueType)))
+                yield return new ReturnInterceptedExternalValueTypeAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalRefType)))
+                yield return new ReturnInterceptedExternalRefTypeAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedValueTypeArray)))
+                yield return new ReturnInterceptedValueTypeArrayAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedRefTypeArray)))
+                yield return new ReturnInterceptedRefTypeArrayAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalValueTypeArray)))
+                yield return new ReturnInterceptedExternalValueTypeArrayAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalRefTypeArray)))
+                yield return new ReturnInterceptedExternalRefTypeArrayAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedValueTypeList)))
+                yield return new ReturnInterceptedValueTypeListAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedRefTypeList)))
+                yield return new ReturnInterceptedRefTypeListAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalValueTypeList)))
+                yield return new ReturnInterceptedExternalValueTypeListAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalRefTypeList)))
+                yield return new ReturnInterceptedExternalRefTypeListAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalParametersAsString)))
+                yield return new ReturnOriginalParametersAsStringAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedParametersAsString)))
+                yield return new ReturnInterceptedParametersAsStringAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefParametersAsString)))
+                yield return new ReturnOriginalRefParametersAsStringAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedRefParametersAsString)))
+                yield return new ReturnInterceptedRefParametersAsStringAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalOutParametersAsString)))
+                yield return new ReturnOriginalOutParametersAsStringAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedOutParametersAsString)))
+                yield return new ReturnInterceptedOutParametersAsStringAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ChangeSumToSubtract)))
+                yield return new ChangeSumToSubtractAspect(); 
+            #endregion
         }
     }
 }

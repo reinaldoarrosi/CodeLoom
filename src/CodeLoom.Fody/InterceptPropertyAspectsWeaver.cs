@@ -1,6 +1,6 @@
 ﻿using CodeLoom.Aspects;
 using CodeLoom.Contexts;
-using CodeLoom.Pipelines;
+using CodeLoom.Bindings;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using System;
@@ -15,6 +15,7 @@ namespace CodeLoom.Fody
 {
     class InterceptPropertyAspectsWeaver
     {
+        
         internal ModuleWeaver ModuleWeaver;
 
         public InterceptPropertyAspectsWeaver(ModuleWeaver moduleWeaver)
@@ -28,74 +29,70 @@ namespace CodeLoom.Fody
 
         public void Weave(TypeDefinition typeDefinition)
         {
-            var type = typeDefinition.TryGetSystemType();
-            if (type == null)
-            {
-                ModuleWeaver.LogInfo($"Type {typeDefinition.FullName} will not be weaved because it was not possible to load its corresponding System.Type");
-                return;
-            }
+            //var type = typeDefinition.TryGetSystemType();
+            //if (type == null)
+            //{
+            //    ModuleWeaver.LogInfo($"Type {typeDefinition.FullName} will not be weaved because it was not possible to load its corresponding System.Type");
+            //    return;
+            //}
 
-            if (type.IsInterface)
-            {
-                ModuleWeaver.LogInfo($"Type {typeDefinition.FullName} will not be weaved because it is an interface");
-                return;
-            }
+            //if (type.IsInterface)
+            //{
+            //    ModuleWeaver.LogInfo($"Type {typeDefinition.FullName} will not be weaved because it is an interface");
+            //    return;
+            //}
 
-            WeaveTypeProperties(typeDefinition);
+            //WeaveTypeProperties(typeDefinition);
         }
 
+        /*
         private void WeaveTypeProperties(TypeDefinition typeDefinition)
         {
             var pipelineRunGetterMethodRef = ModuleDefinition.ImportReference(typeof(InterceptPropertyPipeline).GetMethod(nameof(InterceptPropertyPipeline.RunGetter)));
             var pipelineRunSetterMethodRef = ModuleDefinition.ImportReference(typeof(InterceptPropertyPipeline).GetMethod(nameof(InterceptPropertyPipeline.RunSetter)));
-            var currentTypeDefinition = typeDefinition;
+            var properties = typeDefinition.Properties.ToArray();
 
-            while (currentTypeDefinition != null)
+            foreach (var propertyDefinition in properties)
             {
-                foreach (var propertyDefinition in currentTypeDefinition.Properties)
+                var property = propertyDefinition.GetPropertyInfo();
+                if (property == null)
                 {
-                    var property = propertyDefinition.GetPropertyInfo();
-                    if (property == null)
-                    {
-                        ModuleWeaver.LogInfo($"Property {propertyDefinition.Name} from type {typeDefinition.FullName} will not be weaved because it was not possible to load its corresponding PropertyInfo");
-                        continue;
-                    }
-
-                    if (WeavedProperties.ContainsKey(property))
-                        continue;
-
-                    WeavedProperties.Add(property, true);
-
-                    var aspects = ModuleWeaver.Setup.GetAspects(property).ToArray();
-                    if (aspects.Length <= 0)
-                    {
-                        ModuleWeaver.LogInfo($"Property {propertyDefinition.Name} from type {typeDefinition.FullName} will not be weaved because no aspect was applied to it");
-                        continue;
-                    }
-
-                    if (!propertyDefinition.HasThis)
-                        AddStaticCtorIfNeeded(typeDefinition);
-
-                    MethodDefinition propertyGetterProceed = null;
-                    MethodDefinition propertySetterProceed = null;
-                    FieldDefinition aspectField = AddAspectField(typeDefinition, propertyDefinition);
-
-                    if (property.GetMethod != null && !property.GetMethod.IsAbstract)
-                    {
-                        propertyGetterProceed = CreatePropertyGetterProceedMethod(typeDefinition, propertyDefinition);
-                        RewriteOriginalMethod(typeDefinition, propertyDefinition, propertyDefinition.GetMethod, aspectField, pipelineRunGetterMethodRef);
-                    }
-
-                    if (property.SetMethod != null && !property.SetMethod.IsAbstract)
-                    {
-                        propertySetterProceed = CreatePropertySetterProceedMethod(typeDefinition, propertyDefinition);
-                        RewriteOriginalMethod(typeDefinition, propertyDefinition, propertyDefinition.SetMethod, aspectField, pipelineRunSetterMethodRef);
-                    }
-
-                    AddAspectFieldInitialization(typeDefinition, aspectField, aspects, propertyGetterProceed, propertySetterProceed, !propertyDefinition.HasThis);
+                    ModuleWeaver.LogInfo($"Property {propertyDefinition.Name} from type {typeDefinition.FullName} will not be weaved because it was not possible to load its corresponding PropertyInfo");
+                    continue;
                 }
 
-                currentTypeDefinition = currentTypeDefinition?.BaseType?.Resolve();
+                if (WeavedProperties.ContainsKey(property))
+                    continue;
+
+                WeavedProperties.Add(property, true);
+
+                var aspects = ModuleWeaver.Setup.GetAspects(property).ToArray();
+                if (aspects.Length <= 0)
+                {
+                    ModuleWeaver.LogInfo($"Property {propertyDefinition.Name} from type {typeDefinition.FullName} will not be weaved because no aspect was applied to it");
+                    continue;
+                }
+
+                if (!propertyDefinition.HasThis)
+                    AddStaticCtorIfNeeded(typeDefinition);
+
+                MethodDefinition propertyGetterProceed = null;
+                MethodDefinition propertySetterProceed = null;
+                FieldDefinition aspectField = AddAspectField(typeDefinition, propertyDefinition);
+
+                if (property.GetMethod != null && !property.GetMethod.IsAbstract)
+                {
+                    propertyGetterProceed = CreatePropertyGetterProceedMethod(typeDefinition, propertyDefinition);
+                    RewriteOriginalMethod(typeDefinition, propertyDefinition, propertyDefinition.GetMethod, aspectField, pipelineRunGetterMethodRef);
+                }
+
+                if (property.SetMethod != null && !property.SetMethod.IsAbstract)
+                {
+                    propertySetterProceed = CreatePropertySetterProceedMethod(typeDefinition, propertyDefinition);
+                    RewriteOriginalMethod(typeDefinition, propertyDefinition, propertyDefinition.SetMethod, aspectField, pipelineRunSetterMethodRef);
+                }
+
+                AddAspectFieldInitialization(typeDefinition, aspectField, aspects, propertyGetterProceed, propertySetterProceed, !propertyDefinition.HasThis);
             }
         }
 
@@ -537,5 +534,6 @@ namespace CodeLoom.Fody
 
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
         }
+        */
     }
 }
