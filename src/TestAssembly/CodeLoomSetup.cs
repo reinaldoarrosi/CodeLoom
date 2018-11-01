@@ -5,7 +5,10 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using CodeLoom.Aspects;
+using CodeLoom.Bindings;
 using CodeLoom.Contexts;
+using TestAssembly.Aspects.InterceptGenericMethod.GenericMethods;
+using TestAssembly.Aspects.InterceptGenericMethod.SimpleMethods;
 using TestAssembly.Aspects.InterceptMethod;
 using TestAssembly.ClassesToWeave;
 using TestAssemblyReference;
@@ -14,21 +17,51 @@ using TestAssemblyReference;
 
 namespace TestAssembly
 {
-    public class Test
+    public class Test<T1, T2>
     {
-        public void Method1(ref int[] a, ref string[] c, ref SimpleClass[] e, ref SimpleStruct[] g)
+        private class Binding<T3, T4> : MethodBinding
         {
-            var v = new Arguments(new object[] {
-                new int [] { 1 },
-                new string [] { "a" },
-                new SimpleClass[] { new SimpleClass(1) },
-                new SimpleStruct[] { new SimpleStruct(2) }
-            });
+            public static Binding<T3, T4> INSTANCE;
 
-            a = (int[])v.GetArgument(0);
-            c = (string[])v.GetArgument(2);
-            e = (SimpleClass[])v.GetArgument(4);
-            g = (SimpleStruct[])v.GetArgument(6);
+            static Binding()
+            {
+                INSTANCE = new Binding<T3, T4>(new[] { new GenericReturnOriginalValueFromFirstParameterAspect() });
+            }
+
+            public Binding(InterceptMethodAspect[] aspects)
+                : base(aspects)
+            { }
+
+            protected override void Proceed(MethodContext context)
+            {
+                var instance = (Test<T1, T2>)context.Instance;
+                var arguments = context.Arguments;
+
+                T1 a = (T1)arguments.GetArgument(0);
+                T2 b = (T2)arguments.GetArgument(1);
+                T3 c = (T3)arguments.GetArgument(2);
+                T4 d = (T4)arguments.GetArgument(3);
+                T1 returnValue = instance.Original_GenericMethod<T3, T4>(a, b, c, d);
+
+                context.SetReturnValue(returnValue);
+            }
+        }
+
+        public T1 GenericMethod<T3, T4>(T1 a, T2 b, T3 c, T4 d)
+        {
+            object[] values = new object[] { a, b, c, d };
+            MethodBase methodBase = typeof(Test<,>).GetMethod("GenericMethod");
+            Arguments arguments = new Arguments(values);
+            MethodContext context = new MethodContext(this, methodBase, arguments);
+
+            Binding<T3, T4>.INSTANCE.Run(context);
+
+            return (T1)context.ReturnValue;
+        }
+
+        public T1 Original_GenericMethod<T3, T4>(T1 a, T2 b, T3 c, T4 d)
+        {
+            return a;
         }
     }
 
@@ -39,7 +72,7 @@ namespace TestAssembly
             #region InterceptMethodsClass
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueType)))
                 yield return new ReturnOriginalValueTypeAspect();
-
+            
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefType)))
                 yield return new ReturnOriginalRefTypeAspect();
 
@@ -110,25 +143,79 @@ namespace TestAssembly
                 yield return new ReturnInterceptedExternalRefTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalParametersAsString)))
-                yield return new ReturnOriginalParametersAsStringAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalParametersAsStringAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedParametersAsString)))
-                yield return new ReturnInterceptedParametersAsStringAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedParametersAsStringAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefParametersAsString)))
-                yield return new ReturnOriginalRefParametersAsStringAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalRefParametersAsStringAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedRefParametersAsString)))
-                yield return new ReturnInterceptedRefParametersAsStringAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedRefParametersAsStringAspect();
 
-            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalOutParametersAsString)))
-                yield return new ReturnOriginalOutParametersAsStringAspect();
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalOutParameters)))
+                yield return new Aspects.InterceptMethod.ReturnOriginalOutParametersAspect();
 
-            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedOutParametersAsString)))
-                yield return new ReturnInterceptedOutParametersAsStringAspect();
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedOutParameters)))
+                yield return new Aspects.InterceptMethod.ReturnInterceptedOutParametersAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ChangeSumToSubtract)))
-                yield return new ChangeSumToSubtractAspect(); 
+                yield return new ChangeSumToSubtractAspect();
+            #endregion
+
+            #region InterceptGenericMethodsClass
+            #region Simple methods
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.ReturnOriginalValueFromFirstParameter)))
+                yield return new ReturnOriginalValueFromFirstParameterAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.ReturnInterceptedValueFromFirstParameter)))
+                yield return new ReturnInterceptedValueFromFirstParameterAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.ReturnOriginalParametersAsString)))
+                yield return new Aspects.InterceptGenericMethod.SimpleMethods.ReturnOriginalParametersAsStringAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.ReturnInterceptedParametersAsString)))
+                yield return new Aspects.InterceptGenericMethod.SimpleMethods.ReturnInterceptedParametersAsStringAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.ReturnOriginalRefParametersAsString)))
+                yield return new Aspects.InterceptGenericMethod.SimpleMethods.ReturnOriginalRefParametersAsStringAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.ReturnInterceptedRefParametersAsString)))
+                yield return new Aspects.InterceptGenericMethod.SimpleMethods.ReturnInterceptedRefParametersAsStringAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.ReturnOriginalOutParameters)))
+                yield return new Aspects.InterceptGenericMethod.SimpleMethods.ReturnOriginalOutParametersAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.ReturnInterceptedOutParameters)))
+                yield return new Aspects.InterceptGenericMethod.SimpleMethods.ReturnInterceptedOutParametersAspect();
+            #endregion
+
+            #region Generic methods
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericReturnOriginalValueFromFirstParameter)))
+                yield return new GenericReturnOriginalValueFromFirstParameterAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericReturnInterceptedValueFromFirstParameter)))
+                yield return new GenericReturnInterceptedValueFromFirstParameterAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericReturnOriginalParametersAsString)))
+                yield return new GenericReturnOriginalParametersAsStringAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericReturnInterceptedParametersAsString)))
+                yield return new GenericReturnInterceptedParametersAsStringAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericReturnOriginalRefParametersAsString)))
+                yield return new GenericReturnOriginalRefParametersAsStringAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericReturnInterceptedRefParametersAsString)))
+                yield return new GenericReturnInterceptedRefParametersAsStringAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericReturnOriginalOutParameters)))
+                yield return new GenericReturnOriginalOutParametersAspect();
+
+            if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericReturnInterceptedOutParameters)))
+                yield return new GenericReturnInterceptedOutParametersAspect();
+            #endregion
             #endregion
         }
     }

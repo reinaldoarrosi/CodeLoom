@@ -13,8 +13,6 @@ namespace CodeLoom.Fody
 {
     public class ModuleWeaver : BaseModuleWeaver
     {
-        private TypeDefinition CachingType;
-
         internal CodeLoomSetup Setup;
         internal ImplementInterfaceAspectsWeaver ImplementInterfaceAspectsWeaver;
         internal InterceptMethodAspectsWeaver InterceptMethodAspectsWeaver;
@@ -30,10 +28,6 @@ namespace CodeLoom.Fody
                 Setup = GetSetup(ModuleDefinition);
                 LogInfo("\"CodeLoomSetup\" found.");
 
-                LogInfo("Creating the caching class.");
-                CreateCachingClass();
-                LogInfo("Caching class created.");
-
                 LogInfo("Initializing weavers.");
                 ImplementInterfaceAspectsWeaver = new ImplementInterfaceAspectsWeaver(this);
                 InterceptMethodAspectsWeaver = new InterceptMethodAspectsWeaver(this);
@@ -42,8 +36,6 @@ namespace CodeLoom.Fody
 
                 foreach (var type in ModuleDefinition.Assembly.MainModule.Types)
                 {
-                    if (type == CachingType) continue;
-
                     WeaveType(type);
                 }
             }
@@ -56,39 +48,6 @@ namespace CodeLoom.Fody
         public override IEnumerable<string> GetAssembliesForScanning()
         {
             return Enumerable.Empty<string>();
-        }
-
-        internal FieldReference CreatePropertyInfoCacheField(PropertyDefinition propertyDefinition)
-        {
-            var fieldName = Helpers.GetUniqueFieldName(CachingType, propertyDefinition.Name);
-            var fieldAttributes = FieldAttributes.Assembly | FieldAttributes.Static;
-            var fieldType = ModuleDefinition.ImportReference(typeof(System.Reflection.PropertyInfo));
-            var fieldDefinition = new FieldDefinition(fieldName, fieldAttributes, fieldType);
-            CachingType.Fields.Add(fieldDefinition);
-
-            var staticCtor = CachingType.GetStaticConstructor();
-
-            var getTypeFromHandle = ModuleDefinition.ImportReference(typeof(System.Type).GetMethod(nameof(System.Type.GetTypeFromHandle), new Type[] { typeof(RuntimeTypeHandle) }));
-            var getMethodFromHandle = ModuleDefinition.ImportReference(typeof(System.Reflection.MethodBase).GetMethod(nameof(System.Reflection.MethodBase.GetMethodFromHandle), new Type[] { typeof(RuntimeMethodHandle) }));
-            var getPropertyInfo = ModuleDefinition.ImportReference(typeof(CodeLoomHelper).GetMethod(nameof(CodeLoomHelper.GetPropertyInfo)));
-            var instructions = new Instruction[]
-            {
-                Instruction.Create(OpCodes.Ldtoken, propertyDefinition.DeclaringType),
-                Instruction.Create(OpCodes.Call, getTypeFromHandle),
-                Instruction.Create(OpCodes.Ldstr, propertyDefinition.Name),
-                (propertyDefinition.GetMethod != null ? Instruction.Create(OpCodes.Ldtoken, propertyDefinition.GetMethod) : Instruction.Create(OpCodes.Ldnull)),
-                Instruction.Create(OpCodes.Call, getMethodFromHandle),
-                (propertyDefinition.SetMethod != null ? Instruction.Create(OpCodes.Ldtoken, propertyDefinition.SetMethod) : Instruction.Create(OpCodes.Ldnull)),
-                Instruction.Create(OpCodes.Call, getMethodFromHandle),
-                Instruction.Create(OpCodes.Call, getPropertyInfo),
-                Instruction.Create(OpCodes.Stsfld, fieldDefinition)
-            };
-
-            var insertionPoint = staticCtor.Body.Instructions.First();
-            var ilProcessor = staticCtor.Body.GetILProcessor();
-            ilProcessor.InsertBefore(insertionPoint, instructions);
-
-            return fieldDefinition;
         }
 
         private void WeaveType(TypeDefinition type)
@@ -110,24 +69,6 @@ namespace CodeLoom.Fody
             {
                 WeaveType(nestedType);
             }
-        }
-
-        private void CreateCachingClass()
-        {
-            var @namespace = $"{ModuleDefinition.Assembly.Name.Name}._CodeLoom_{Guid.NewGuid().ToString("N")}";
-            var typeAttributes = TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Sealed;
-            var typeDefinition = new TypeDefinition(@namespace, "<CodeLoomCacheClass>", typeAttributes);
-            typeDefinition.BaseType = TypeSystem.ObjectReference;
-
-            var ctorAttributes = MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName | MethodAttributes.Static;
-            var staticCtor = new MethodDefinition(".cctor", ctorAttributes, TypeSystem.VoidReference);
-            var ilProcessor = staticCtor.Body.GetILProcessor();
-            staticCtor.Body.InitLocals = true;
-            ilProcessor.Append(Instruction.Create(OpCodes.Ret));
-
-            typeDefinition.Methods.Add(staticCtor);
-            ModuleDefinition.Assembly.MainModule.Types.Add(typeDefinition);
-            CachingType = typeDefinition;
         }
 
         private CodeLoomSetup GetSetup(ModuleDefinition moduleDefinition)

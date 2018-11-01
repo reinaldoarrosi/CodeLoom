@@ -56,6 +56,11 @@ namespace CodeLoom.Tests
             domainDelegate.Execute(action);
         }
 
+        public static TestResult GetTestResult()
+        {
+            return _weaveResult;
+        }
+
         private static AppDomain CreateAppDomain(string appBase)
         {
             var appDomainSetup = new AppDomainSetup();

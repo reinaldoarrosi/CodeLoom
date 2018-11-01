@@ -62,18 +62,6 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static TypeReference TryGetClosedGenericType(this TypeReference type, MethodReference closedGenericMethod, ModuleDefinition moduleDefinition)
-        {
-            try
-            {
-                return GetClosedGenericType(type, closedGenericMethod, moduleDefinition);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
         public static TypeReference GetClosedGenericType(this TypeReference type, MethodReference closedGenericMethod, ModuleDefinition moduleDefinition)
         {
             if (type.IsByReference)
@@ -111,18 +99,6 @@ namespace CodeLoom.Fody
             }
 
             return type;
-        }
-
-        public static TypeReference TryGetClosedGenericType(this TypeReference type, TypeReference closedGenericType, ModuleDefinition moduleDefinition)
-        {
-            try
-            {
-                return GetClosedGenericType(type, closedGenericType, moduleDefinition);
-            }
-            catch
-            {
-                return null;
-            }
         }
 
         public static TypeReference GetClosedGenericType(this TypeReference type, TypeReference closedGenericType, ModuleDefinition moduleDefinition)
@@ -172,6 +148,91 @@ namespace CodeLoom.Fody
             }
 
             return type;
+        }
+
+        public static TypeReference MakeTypeReference(this TypeReference type, params GenericParameter[] arguments)
+        {
+            if (type.IsByReference)
+            {
+                var byRefType = type as ByReferenceType;
+                return byRefType.ElementType.MakeTypeReference(arguments);
+            }
+
+            if (type.IsArray)
+            {
+                var arrayType = type as ArrayType;
+                return new ArrayType(arrayType.ElementType.MakeTypeReference(arguments));
+            }
+
+            if (type.IsGenericParameter)
+            {
+                return arguments.LastOrDefault(a => a.Name == type.Name) ?? type;
+            }
+
+            if (type.IsGenericInstance)
+            {
+                var currentGenericInstanceType = type as GenericInstanceType;
+                var newGenericInstanceType = new GenericInstanceType(currentGenericInstanceType.ElementType);
+
+                foreach (var genericArgument in currentGenericInstanceType.GenericArguments)
+                {
+                    var arg = genericArgument.MakeTypeReference(arguments);
+                    newGenericInstanceType.GenericArguments.Add(arg);
+                }
+
+                return newGenericInstanceType;
+            }
+
+            if (type.HasGenericParameters)
+            {
+                var genericType = new GenericInstanceType(type);
+
+                foreach (var genericParameter in type.GenericParameters)
+                {
+                    var arg = genericParameter.MakeTypeReference(arguments);
+                    genericType.GenericArguments.Add(arg);
+                }
+
+                type = genericType;
+            }
+
+            return type;
+        }
+
+        public static MethodReference MakeMethodReference(this MethodDefinition method, TypeReference declaringType, params GenericParameter[] arguments)
+        {
+            var methodRef = new MethodReference(method.Name, method.ReturnType, declaringType)
+            {
+                HasThis = method.HasThis,
+                ExplicitThis = method.ExplicitThis,
+                CallingConvention = method.CallingConvention
+            };
+
+            foreach (var parameter in method.Parameters)
+                methodRef.Parameters.Add(new ParameterDefinition(parameter.ParameterType));
+
+            foreach (var genericParameter in method.GenericParameters)
+                methodRef.GenericParameters.Add(new GenericParameter(genericParameter.Name, genericParameter.Owner));
+
+            if (method.GenericParameters.Count > 0)
+            {
+                var methodGenericRef = new GenericInstanceMethod(methodRef);
+
+                foreach (var genericParameter in method.GenericParameters)
+                {
+                    var arg = arguments.Last(a => a.Name == genericParameter.Name);
+                    methodGenericRef.GenericArguments.Add(arg);
+                }
+
+                methodRef = methodGenericRef;
+            }
+
+            return methodRef;
+        }
+
+        public static FieldReference MakeFieldReference(this FieldDefinition field, TypeReference declaringType)
+        {
+            return new FieldReference(field.Name, field.FieldType, declaringType);
         }
 
         public static Type GetSystemType(this TypeDefinition typeDefinition)
@@ -315,6 +376,12 @@ namespace CodeLoom.Fody
             {
                 var byRefType = typeReference as ByReferenceType;
                 return byRefType.ElementType.GetSimpleTypeName() + "&";
+            }
+
+            if (typeReference.IsArray)
+            {
+                var arrayType = typeReference as ArrayType;
+                return arrayType.ElementType.GetSimpleTypeName() + "[]";
             }
 
             StringBuilder sb = new StringBuilder();

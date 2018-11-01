@@ -10,7 +10,7 @@ using TestAssemblyReference;
 
 namespace TestAssembly.Aspects.InterceptMethod
 {
-    public class ReturnInterceptedOutParametersAsStringAspect : InterceptMethodAspect
+    public class ReturnInterceptedOutParametersAspect : InterceptMethodAspect
     {
         public override void OnMethodInvoked(MethodContext context)
         {

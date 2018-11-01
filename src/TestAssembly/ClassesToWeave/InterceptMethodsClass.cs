@@ -86,7 +86,7 @@ namespace TestAssembly.ClassesToWeave
             return Helper.AsString(a, b, c, d, e, f, g, h, i, j, k, l);
         }
 
-        public void ReturnOriginalOutParametersAsString(out int a, out string b, out SimpleStruct c, out SimpleClass d, out int[] e, out string[] f, out SimpleStruct[] g, out SimpleClass[] h, out List<int> i, out List<string> j, out List<SimpleStruct> k, out List<SimpleClass> l)
+        public void ReturnOriginalOutParameters(out int a, out string b, out SimpleStruct c, out SimpleClass d, out int[] e, out string[] f, out SimpleStruct[] g, out SimpleClass[] h, out List<int> i, out List<string> j, out List<SimpleStruct> k, out List<SimpleClass> l)
         {
             a = 1;
             b = "a";
@@ -102,7 +102,7 @@ namespace TestAssembly.ClassesToWeave
             l = new List<SimpleClass> { new SimpleClass(1) };
         }
 
-        public void ReturnInterceptedOutParametersAsString(out int a, out string b, out SimpleStruct c, out SimpleClass d, out int[] e, out string[] f, out SimpleStruct[] g, out SimpleClass[] h, out List<int> i, out List<string> j, out List<SimpleStruct> k, out List<SimpleClass> l)
+        public void ReturnInterceptedOutParameters(out int a, out string b, out SimpleStruct c, out SimpleClass d, out int[] e, out string[] f, out SimpleStruct[] g, out SimpleClass[] h, out List<int> i, out List<string> j, out List<SimpleStruct> k, out List<SimpleClass> l)
         {
             a = 1;
             b = "a";

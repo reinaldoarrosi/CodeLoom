@@ -7,12 +7,13 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TestAssembly.Aspects.InterceptMethod
+namespace TestAssembly.Aspects.InterceptGenericMethod.SimpleMethods
 {
-    public class ReturnOriginalOutParametersAsStringAspect : InterceptMethodAspect
+    public class ReturnInterceptedValueFromFirstParameterAspect : InterceptMethodAspect
     {
         public override void OnMethodInvoked(MethodContext context)
         {
+            context.Arguments.SetArgument(0, 2);
             context.Proceed();
         }
     }

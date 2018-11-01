@@ -520,7 +520,7 @@ namespace CodeLoom.Tests
         public class OutParameters
         {
             [Fact]
-            private void return_string_with_original_parameters_values_when_ReturnOriginalOutParametersAsString_is_called()
+            private void return_string_with_original_parameters_values_when_ReturnOriginalOutParameters_is_called()
             {
                 Execute(() =>
                 {
@@ -550,7 +550,7 @@ namespace CodeLoom.Tests
                     List<string> out10;
                     List<SimpleStruct> out11;
                     List<SimpleClass> out12;
-                    instance.ReturnOriginalOutParametersAsString(out out1, out out2, out out3, out out4, out out5, out out6, out out7, out out8, out out9, out out10, out out11, out out12);
+                    instance.ReturnOriginalOutParameters(out out1, out out2, out out3, out out4, out out5, out out6, out out7, out out8, out out9, out out10, out out11, out out12);
 
                     Assert.Equal(p1, out1);
                     Assert.Equal(p2, out2);
@@ -568,7 +568,7 @@ namespace CodeLoom.Tests
             }
 
             [Fact]
-            private void return_string_with_intercepted_parameters_values_when_ReturnInterceptedOutParametersAsString_is_called()
+            private void return_string_with_intercepted_parameters_values_when_ReturnInterceptedOutParameters_is_called()
             {
                 Execute(() =>
                 {
@@ -598,7 +598,7 @@ namespace CodeLoom.Tests
                     List<string> out10;
                     List<SimpleStruct> out11;
                     List<SimpleClass> out12;
-                    instance.ReturnInterceptedOutParametersAsString(out out1, out out2, out out3, out out4, out out5, out out6, out out7, out out8, out out9, out out10, out out11, out out12);
+                    instance.ReturnInterceptedOutParameters(out out1, out out2, out out3, out out4, out out5, out out6, out out7, out out8, out out9, out out10, out out11, out out12);
 
                     Assert.Equal(interceptedP1, out1);
                     Assert.Equal(interceptedP2, out2);

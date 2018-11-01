@@ -17,7 +17,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestAssembly", "TestAssembl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CodeLoom.Tests", "CodeLoom.Tests\CodeLoom.Tests.csproj", "{FAFF92E3-D538-4F73-97D3-425B97611E7E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestAssemblyReference", "TestAssemblyReference\TestAssemblyReference.csproj", "{005106EA-F27B-4E27-AC63-6A25D3A5E07E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestAssemblyReference", "TestAssemblyReference\TestAssemblyReference.csproj", "{005106EA-F27B-4E27-AC63-6A25D3A5E07E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -5,12 +5,8 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using Mono.Cecil.Rocks;
 
 namespace CodeLoom.Fody
 {
@@ -161,10 +157,7 @@ namespace CodeLoom.Fody
             var staticCtor = CreateMethodBindingStaticCtor(methodBindingTypeDef, instanceField, ctor, aspects);
             methodBindingTypeDef.Methods.Add(staticCtor);
 
-            var methodBaseField = CreateMethodBindingMethodBaseField(methodBindingTypeDef, originalMethod);
-            methodBindingTypeDef.Fields.Add(methodBaseField);
-
-            var proceedMethod = CreateMethodBindingProceedMethod(methodBindingTypeDef, typeDefinition, clonedMethod);
+            var proceedMethod = CreateMethodBindingProceedMethod(typeDefinition, clonedMethod, methodBindingTypeDef);
             methodBindingTypeDef.Methods.Add(proceedMethod);
 
             return methodBindingTypeDef;
@@ -178,6 +171,11 @@ namespace CodeLoom.Fody
             var typeDef = new TypeDefinition(typeDefinition.Namespace, typeName, typeAttributes);
             typeDef.BaseType = methodBindingTypeRef;
 
+            foreach (var genericParameter in typeDefinition.GenericParameters)
+            {
+                typeDef.GenericParameters.Add(new GenericParameter(genericParameter.Name, typeDef));
+            }
+
             foreach (var genericParameter in originalMethod.GenericParameters)
             {
                 typeDef.GenericParameters.Add(new GenericParameter(genericParameter.Name, typeDef));
@@ -188,8 +186,9 @@ namespace CodeLoom.Fody
 
         private FieldDefinition CreateMethodBindingInstanceField(TypeDefinition methodBindingTypeDef)
         {
+            var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(methodBindingTypeDef.GenericParameters.ToArray());
             var instanceFieldAttributes = FieldAttributes.Static | FieldAttributes.Public;
-            var instanceField = new FieldDefinition("INSTANCE", instanceFieldAttributes, methodBindingTypeDef);
+            var instanceField = new FieldDefinition("INSTANCE", instanceFieldAttributes, methodBindingTypeRef);
 
             return instanceField;
         }       
@@ -215,6 +214,10 @@ namespace CodeLoom.Fody
 
         private MethodDefinition CreateMethodBindingStaticCtor(TypeDefinition methodBindingTypeDef, FieldDefinition instanceField, MethodDefinition ctor, InterceptMethodAspect[] aspects)
         {
+            var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(methodBindingTypeDef.GenericParameters.ToArray());
+            var ctorRef = ctor.MakeMethodReference(methodBindingTypeRef, ctor.GenericParameters.ToArray());
+            var instanceFieldRef = instanceField.MakeFieldReference(methodBindingTypeRef);
+
             var staticCtorAttributes = MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName | MethodAttributes.Static;
             var staticCtor = new MethodDefinition(".cctor", staticCtorAttributes, ModuleWeaver.TypeSystem.VoidReference);
             staticCtor.Body.InitLocals = true;
@@ -224,6 +227,7 @@ namespace CodeLoom.Fody
             staticCtor.Body.Variables.Add(aspectsArrayVar);
 
             var ilProcessor = staticCtor.Body.GetILProcessor();
+
             ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, aspects.Length));
             ilProcessor.Append(Instruction.Create(OpCodes.Newarr, baseAspectTypeRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, aspectsArrayVar));
@@ -240,37 +244,18 @@ namespace CodeLoom.Fody
             }
 
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, aspectsArrayVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Newobj, ctor));
-            ilProcessor.Append(Instruction.Create(OpCodes.Stsfld, instanceField));
+            ilProcessor.Append(Instruction.Create(OpCodes.Newobj, ctorRef));
+            ilProcessor.Append(Instruction.Create(OpCodes.Stsfld, instanceFieldRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
 
             return staticCtor;
         }
 
-        private FieldDefinition CreateMethodBindingMethodBaseField(TypeDefinition methodBindingTypeDef, MethodDefinition originalMethod)
+        private MethodDefinition CreateMethodBindingProceedMethod(TypeDefinition typeDefinition, MethodDefinition clonedMethod, TypeDefinition methodBindingTypeDef)
         {
-            var fieldAttributes = FieldAttributes.Assembly | FieldAttributes.Static;
-            var fieldType = ModuleDefinition.ImportReference(typeof(System.Reflection.MethodBase));
-            var fieldDefinition = new FieldDefinition("METHOD_BASE", fieldAttributes, fieldType);
-
-            var staticCtor = methodBindingTypeDef.GetStaticConstructor();
-            var getMethodFromHandle = ModuleDefinition.ImportReference(typeof(System.Reflection.MethodBase).GetMethod(nameof(System.Reflection.MethodBase.GetMethodFromHandle), new Type[] { typeof(RuntimeMethodHandle) }));
-            var instructions = new Instruction[]
-            {
-                Instruction.Create(OpCodes.Ldtoken, originalMethod),
-                Instruction.Create(OpCodes.Call, getMethodFromHandle),
-                Instruction.Create(OpCodes.Stsfld, fieldDefinition)
-            };
-
-            var insertionPoint = staticCtor.Body.Instructions.First();
-            var ilProcessor = staticCtor.Body.GetILProcessor();
-            ilProcessor.InsertBefore(insertionPoint, instructions);
-
-            return fieldDefinition;
-        }
-
-        private MethodDefinition CreateMethodBindingProceedMethod(TypeDefinition methodBindingTypeDef, TypeDefinition typeDefinition, MethodDefinition clonedMethod)
-        {
+            var availableGenericParameters = methodBindingTypeDef.GenericParameters.ToArray();
+            var typeDefinitionRef = typeDefinition.MakeTypeReference(typeDefinition.GenericParameters.ToArray());
+            var clonedMethodRef = clonedMethod.MakeMethodReference(typeDefinitionRef, availableGenericParameters);
             var bindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
             var methodBindingProceedMethodRef = ModuleDefinition.ImportReference(typeof(MethodBinding).GetMethod("Proceed", bindingFlags));
             var proceedMethodAttributes = MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual;
@@ -284,19 +269,19 @@ namespace CodeLoom.Fody
 
             var ilProcessor = proceedMethod.Body.GetILProcessor();
 
-            if (!clonedMethod.IsStatic)
+            if (clonedMethodRef.HasThis)
             {
-                var instanceVar = new VariableDefinition(typeDefinition);
+                var instanceVar = new VariableDefinition(typeDefinitionRef);
                 proceedMethod.Body.Variables.Add(instanceVar);
 
                 var getInstanceMethod = ModuleDefinition.ImportReference(typeof(MethodContext).GetProperty(nameof(MethodContext.Instance)).GetMethod);
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
                 ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getInstanceMethod));
 
-                if (typeDefinition.IsValueType)
-                    ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, typeDefinition));
+                if (typeDefinitionRef.IsValueType)
+                    ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, typeDefinitionRef));
                 else
-                    ilProcessor.Append(Instruction.Create(OpCodes.Castclass, typeDefinition));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Castclass, typeDefinitionRef));
 
                 ilProcessor.Append(Instruction.Create(OpCodes.Stloc, instanceVar));
             }
@@ -314,11 +299,9 @@ namespace CodeLoom.Fody
             // loads the arguments into local variables
             var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgument), new Type[] { typeof(int) }));
             var localParametersVariables = new List<VariableDefinition>();
-            foreach (var parameter in clonedMethod.Parameters)
+            foreach (var parameter in clonedMethodRef.Parameters)
             {
-                var realParameterType = parameter.ParameterType;
-                if (realParameterType.IsByReference) realParameterType = (realParameterType as TypeSpecification).ElementType;
-
+                var realParameterType = parameter.ParameterType.MakeTypeReference(availableGenericParameters);
                 var parameterVar = new VariableDefinition(realParameterType);
                 localParametersVariables.Add(parameterVar);
                 proceedMethod.Body.Variables.Add(parameterVar);
@@ -329,7 +312,7 @@ namespace CodeLoom.Fody
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
                     ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getArgumentValueMethod));
 
-                    if (realParameterType.IsValueType)
+                    if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
                         ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, realParameterType));
                     else
                         ilProcessor.Append(Instruction.Create(OpCodes.Castclass, realParameterType));
@@ -339,10 +322,10 @@ namespace CodeLoom.Fody
             }
 
             // prepares to call the original method, loading "this" and the local variables into the stack
-            if (!clonedMethod.IsStatic)
+            if (clonedMethodRef.HasThis)
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldloc_0));
 
-            foreach (var parameter in clonedMethod.Parameters)
+            foreach (var parameter in clonedMethodRef.Parameters)
             {
                 if (parameter.ParameterType.IsByReference)
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldloca, localParametersVariables[parameter.Index]));
@@ -351,16 +334,19 @@ namespace CodeLoom.Fody
             }
 
             // calls the original method
-            if (!clonedMethod.IsStatic)
-                ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, clonedMethod));
+            if (clonedMethodRef.HasThis)
+                ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, clonedMethodRef));
             else
-                ilProcessor.Append(Instruction.Create(OpCodes.Call, clonedMethod));
+                ilProcessor.Append(Instruction.Create(OpCodes.Call, clonedMethodRef));
 
             // set the MethodContext.ReturnValue with the value returned from the originalMethod
-            if (!clonedMethod.ReturnType.SameTypeAs(ModuleWeaver.TypeSystem.VoidReference))
+            if (!clonedMethodRef.ReturnType.SameTypeAs(ModuleWeaver.TypeSystem.VoidReference))
             {
                 // stores the originalMethod return value into a local variable
-                var returnValueVar = new VariableDefinition(clonedMethod.ReturnType);
+                var returnType = clonedMethodRef.ReturnType;
+                if (returnType.IsGenericParameter) returnType = availableGenericParameters.Last(p => p.Name == returnType.Name);
+
+                var returnValueVar = new VariableDefinition(returnType);
                 proceedMethod.Body.Variables.Add(returnValueVar);
                 ilProcessor.Append(Instruction.Create(OpCodes.Stloc, returnValueVar));
 
@@ -369,7 +355,7 @@ namespace CodeLoom.Fody
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, returnValueVar));
 
-                if (returnValueVar.VariableType.IsValueType)
+                if (returnValueVar.VariableType.IsValueType || returnValueVar.VariableType.IsGenericParameter)
                     ilProcessor.Append(Instruction.Create(OpCodes.Box, returnValueVar.VariableType));
 
                 ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, setReturnValue));
@@ -377,7 +363,7 @@ namespace CodeLoom.Fody
 
             // sets the values of the arguments back into the MethodContext, because they can be modified when they're "out" or "ref" parameters
             var setArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.SetArgument), new Type[] { typeof(int), typeof(object) }));
-            foreach (var parameter in clonedMethod.Parameters)
+            foreach (var parameter in clonedMethodRef.Parameters)
             {
                 if (!parameter.ParameterType.IsByReference) continue;
 
@@ -386,7 +372,7 @@ namespace CodeLoom.Fody
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, localParameterVar));
 
-                if (localParameterVar.VariableType.IsValueType)
+                if (localParameterVar.VariableType.IsValueType || localParameterVar.VariableType.IsGenericParameter)
                     ilProcessor.Append(Instruction.Create(OpCodes.Box, localParameterVar.VariableType));
 
                 ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, setArgumentValueMethod));
@@ -399,6 +385,10 @@ namespace CodeLoom.Fody
 
         private void RewriteOriginalMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod, TypeDefinition methodBindingTypeDef)
         {
+            var typeDefintionRef = typeDefinition.MakeTypeReference(typeDefinition.GenericParameters.ToArray());
+            var originalMethodRef = originalMethod.MakeMethodReference(typeDefintionRef, originalMethod.GenericParameters.ToArray());
+            var availableGenericParameters = typeDefinition.GenericParameters.Concat(originalMethod.GenericParameters).ToArray();
+
             List<Instruction> baseCallInstructions = null;
             if (originalMethod.IsConstructor && !originalMethod.IsStatic)
             {
@@ -437,15 +427,14 @@ namespace CodeLoom.Fody
                 ilProcessor.Append(Instruction.Create(OpCodes.Newarr, ModuleWeaver.TypeSystem.ObjectReference));
                 foreach (var parameter in originalMethod.Parameters)
                 {
+                    var realParameterType = parameter.ParameterType.MakeTypeReference(availableGenericParameters);
+
                     ilProcessor.Append(Instruction.Create(OpCodes.Dup));
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldarg, parameter));
-
-                    var realParameterType = parameter.ParameterType;
-                    if (realParameterType.IsByReference)
+                    
+                    if (parameter.ParameterType.IsByReference)
                     {
-                        realParameterType = (realParameterType as ByReferenceType).ElementType;
-
                         if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
                             ilProcessor.Append(Instruction.Create(OpCodes.Ldobj, realParameterType));
                         else
@@ -473,10 +462,13 @@ namespace CodeLoom.Fody
             }
 
             // creates a variable holding the reference to the MethodBase that represents the method being executed (this will be used to instantiate the MethodContext)
-            var methodBindingMethodBaseField = methodBindingTypeDef.Fields.First(f => f.Name == "METHOD_BASE");
-            var methodBaseVar = new VariableDefinition(methodBindingMethodBaseField.FieldType);
+            var getMethodFromHandle = ModuleDefinition.ImportReference(typeof(System.Reflection.MethodBase).GetMethod(nameof(System.Reflection.MethodBase.GetMethodFromHandle), new[] { typeof(RuntimeMethodHandle), typeof(RuntimeTypeHandle) }));
+            var methodBaseTypeRef = ModuleDefinition.ImportReference(typeof(System.Reflection.MethodBase));
+            var methodBaseVar = new VariableDefinition(methodBaseTypeRef);
             originalMethod.Body.Variables.Add(methodBaseVar);
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, methodBindingMethodBaseField));
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldtoken, originalMethodRef));
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldtoken, typeDefintionRef));
+            ilProcessor.Append(Instruction.Create(OpCodes.Call, getMethodFromHandle));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, methodBaseVar));
 
             // creates the MethodContext instance
@@ -492,11 +484,13 @@ namespace CodeLoom.Fody
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, contextVar));
 
             // invoke the aspects
-            var methodBindingInstanceField = methodBindingTypeDef.Fields.First(f => f.Name == "INSTANCE");
+            var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(availableGenericParameters);
+            var methodBindingInstanceFieldDef = methodBindingTypeDef.Fields.First(f => f.IsStatic && f.Name == "INSTANCE");
+            var methodBindingInstanceFieldRef = methodBindingInstanceFieldDef.MakeFieldReference(methodBindingTypeRef);
             var methodBindingRunMethodRef = ModuleDefinition.ImportReference(typeof(MethodBinding).GetMethod(nameof(MethodBinding.Run)));
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, methodBindingInstanceField));
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, methodBindingInstanceFieldRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Call, methodBindingRunMethodRef));
+            ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, methodBindingRunMethodRef));
 
             // sets the values of MethodContext.Arguments back into the method arguments, because they can be modified when they're "out" or "ref" parameters
             var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgument), new Type[] { typeof(int) }));
@@ -510,7 +504,7 @@ namespace CodeLoom.Fody
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
                 ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getArgumentValueMethod));
 
-                if (realParameterType.IsValueType)
+                if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
                 {
                     ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, realParameterType));
                     ilProcessor.Append(Instruction.Create(OpCodes.Stobj, realParameterType));
@@ -529,7 +523,7 @@ namespace CodeLoom.Fody
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
                 ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getReturnValue));
 
-                if (originalMethod.ReturnType.IsValueType)
+                if (originalMethod.ReturnType.IsValueType || originalMethod.ReturnType.IsGenericParameter)
                     ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, originalMethod.ReturnType));
                 else
                     ilProcessor.Append(Instruction.Create(OpCodes.Castclass, originalMethod.ReturnType));
