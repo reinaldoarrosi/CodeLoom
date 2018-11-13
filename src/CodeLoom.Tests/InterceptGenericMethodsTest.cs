@@ -15,6 +15,7 @@ namespace CodeLoom.Tests
 {
     public class InterceptGenericMethodsTest : BaseTest
     {
+        /*
         public class SimpleMethods
         {
             [Fact]
@@ -407,6 +408,206 @@ namespace CodeLoom.Tests
                     Assert.Equal(interceptedP12[1].Value, out12[1].Value);
                 });
             }
+        }
+        */
+
+        public class GenericMethodsWithRepeatedGenericParameter
+        {
+            [Fact]
+            private void returns_original_value_when_GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameter_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptGenericMethodsClass<int, string>();
+                    var result = instance.GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameter<SimpleClass, SimpleStruct>(1, new SimpleStruct(1), new SimpleClass(1));
+
+                    Assert.Equal(1, result);
+                });
+            }
+
+            /*
+            [Fact]
+            private void returns_intercepted_value_when_GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptGenericMethodsClass<int, string>();
+                    var result = instance.GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter<SimpleClass, SimpleStruct>(1, new SimpleStruct(1), new SimpleClass(1));
+
+                    Assert.Equal(2, result);
+                });
+            }
+
+            [Fact]
+            private void returns_original_parameters_as_string_when_GenericWithRepeatedGenericParameterReturnOriginalParametersAsString_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptGenericMethodsClass<int, string>();
+                    var p1 = 1;
+                    var p2 = new SimpleStruct(1);
+                    var p3 = new SimpleClass(1);
+                    var expected = Helper.AsString(p1, p2, p3);
+
+                    var result = instance.GenericWithRepeatedGenericParameterReturnOriginalParametersAsString<SimpleClass, SimpleStruct>(p1, p2, p3);
+
+                    Assert.Equal(expected, result);
+                });
+            }
+
+            [Fact]
+            private void returns_intercepted_parameters_as_string_when_GenericWithRepeatedGenericParameterReturnInterceptedParametersAsString_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptGenericMethodsClass<int, string>();
+                    var interceptedP1 = 2;
+                    var interceptedP2 = new SimpleStruct(2);
+                    var interceptedP3 = new SimpleClass(2);
+                    var expected = Helper.AsString(interceptedP1, interceptedP2, interceptedP3);
+
+                    var originalP1 = 1;
+                    var originalP2 = new SimpleStruct(1);
+                    var originalP3 = new SimpleClass(1);
+                    var result = instance.GenericWithRepeatedGenericParameterReturnInterceptedParametersAsString<SimpleClass, SimpleStruct>(originalP1, originalP2, originalP3);
+
+                    Assert.Equal(expected, result);
+                });
+            }
+
+            [Fact]
+            private void returns_original_parameters_as_string_when_GenericWithRepeatedGenericParameterReturnOriginalRefParametersAsString_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptGenericMethodsClass<int, string>();
+                    var p1 = 1;
+                    var p2 = new SimpleStruct(1);
+                    var p3 = new SimpleClass(1);
+                    var expected = Helper.AsString(p1, p2, p3);
+
+                    var ref1 = p1;
+                    var ref2 = p2;
+                    var ref3 = p3;
+                    var result = instance.GenericWithRepeatedGenericParameterReturnOriginalRefParametersAsString<SimpleClass, SimpleStruct>(ref ref1, ref ref2, ref ref3);
+
+                    Assert.Equal(expected, result);
+                    Assert.Equal(p1, ref1);
+                    Assert.Equal(p2, ref2);
+                    Assert.Same(p3, ref3);
+                });
+            }
+
+            [Fact]
+            private void returns_intercepted_parameters_as_string_when_GenericWithRepeatedGenericParameterReturnInterceptedRefParametersAsString_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptGenericMethodsClass<int, string>();
+                    var interceptedP1 = 2;
+                    var interceptedP2 = new SimpleStruct(2);
+                    var interceptedP3 = new SimpleClass(2);
+                    var expected = Helper.AsString(interceptedP1, interceptedP2, interceptedP3);
+
+                    var p1 = 1;
+                    var p2 = new SimpleStruct(1);
+                    var p3 = new SimpleClass(1);
+                    var ref1 = p1;
+                    var ref2 = p2;
+                    var ref3 = p3;
+                    var result = instance.GenericWithRepeatedGenericParameterReturnInterceptedRefParametersAsString<SimpleClass, SimpleStruct>(ref ref1, ref ref2, ref ref3);
+
+                    Assert.Equal(expected, result);
+                    Assert.NotEqual(p1, ref1);
+                    Assert.NotEqual(p2, ref2);
+                    Assert.NotSame(p3, ref3);
+                });
+            }
+
+            [Fact]
+            private void returns_original_parameters_as_string_when_GenericWithRepeatedGenericParameterReturnOriginalOutParameters_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptGenericMethodsClass<int, string>();
+                    var p1 = default(int);
+                    var p2 = default(SimpleStruct);
+                    var p3 = default(SimpleClass);
+                    var p4 = new[] { default(int) };
+                    var p5 = new[] { default(SimpleStruct) };
+                    var p6 = new[] { default(SimpleClass) };
+                    var p7 = new List<int> { default(int) };
+                    var p8 = new List<SimpleStruct> { default(SimpleStruct) };
+                    var p9 = new List<SimpleClass> { default(SimpleClass) };
+
+                    int out1;
+                    SimpleStruct out2;
+                    SimpleClass out3;
+                    int[] out4;
+                    SimpleStruct[] out5;
+                    SimpleClass[] out6;
+                    List<int> out7;
+                    List<SimpleStruct> out8;
+                    List<SimpleClass> out9;
+                    instance.GenericWithRepeatedGenericParameterReturnOriginalOutParameters<SimpleClass, SimpleStruct>(out out1, out out2, out out3, out out4, out out5, out out6, out out7, out out8, out out9);
+
+                    Assert.Equal(p1, out1);
+                    Assert.Equal(p2, out2);
+                    Assert.Equal(p3, out3);
+                    Assert.Equal(p4[0], out4[0]);
+                    Assert.Equal(p5[0], out5[0]);
+                    Assert.Equal(p6[0], out6[0]);
+                    Assert.Equal(p7[0], out7[0]);
+                    Assert.Equal(p8[0], out8[0]);
+                    Assert.Equal(p9[0], out9[0]);
+                });
+            }
+
+            [Fact]
+            private void returns_intercepted_parameters_as_string_when_GenericWithRepeatedGenericParameterReturnInterceptedOutParameters_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptGenericMethodsClass<int, string>();
+                    var interceptedP1 = 2;
+                    var interceptedP2 = new SimpleStruct(2);
+                    var interceptedP3 = new SimpleClass(2);
+                    var interceptedP4 = new[] { 1, 2 };
+                    var interceptedP5 = new[] { new SimpleStruct(1), new SimpleStruct(2) };
+                    var interceptedP6 = new[] { new SimpleClass(1), new SimpleClass(2) };
+                    var interceptedP7 = new List<int> { 1, 2 };
+                    var interceptedP8 = new List<SimpleStruct> { new SimpleStruct(1), new SimpleStruct(2) };
+                    var interceptedP9 = new List<SimpleClass> { new SimpleClass(1), new SimpleClass(2) };
+
+                    int out1;
+                    SimpleStruct out2;
+                    SimpleClass out3;
+                    int[] out4;
+                    SimpleStruct[] out5;
+                    SimpleClass[] out6;
+                    List<int> out7;
+                    List<SimpleStruct> out8;
+                    List<SimpleClass> out9;
+                    instance.GenericWithRepeatedGenericParameterReturnInterceptedOutParameters<SimpleClass, SimpleStruct>(out out1, out out2, out out3, out out4, out out5, out out6, out out7, out out8, out out9);
+
+                    Assert.Equal(interceptedP1, out1);
+                    Assert.Equal(interceptedP2.Value, out2.Value);
+                    Assert.Equal(interceptedP3.Value, out3.Value);
+                    Assert.Equal(interceptedP4[0], out4[0]);
+                    Assert.Equal(interceptedP4[1], out4[1]);
+                    Assert.Equal(interceptedP5[0].Value, out5[0].Value);
+                    Assert.Equal(interceptedP5[1].Value, out5[1].Value);
+                    Assert.Equal(interceptedP6[0].Value, out6[0].Value);
+                    Assert.Equal(interceptedP6[1].Value, out6[1].Value);
+                    Assert.Equal(interceptedP7[0], out7[0]);
+                    Assert.Equal(interceptedP7[1], out7[1]);
+                    Assert.Equal(interceptedP8[0].Value, out8[0].Value);
+                    Assert.Equal(interceptedP8[1].Value, out8[1].Value);
+                    Assert.Equal(interceptedP9[0].Value, out9[0].Value);
+                    Assert.Equal(interceptedP9[1].Value, out9[1].Value);
+                });
+            }
+            */
         }
     }
 }

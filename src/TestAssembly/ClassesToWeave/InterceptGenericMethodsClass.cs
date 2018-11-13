@@ -10,6 +10,7 @@ namespace TestAssembly.ClassesToWeave
 {
     public class InterceptGenericMethodsClass<T1, T2>
     {
+        /*
         #region Simple methods
         public T1 ReturnOriginalValueFromFirstParameter(T1 a, T2 b)
         {
@@ -125,6 +126,7 @@ namespace TestAssembly.ClassesToWeave
             l = new List<T4> { default(T4) };
         }
         #endregion
+        */
 
         #region Generic methods with repeated generic parameter
         public T1 GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameter<T3, T2>(T1 a, T2 b, T3 c)
@@ -132,6 +134,7 @@ namespace TestAssembly.ClassesToWeave
             return a;
         }
 
+        /*
         public T1 GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter<T3, T2>(T1 a, T2 b, T3 c)
         {
             return a;
@@ -182,6 +185,7 @@ namespace TestAssembly.ClassesToWeave
             h = new List<T2> { default(T2) };
             i = new List<T3> { default(T3) };
         } 
+        */
         #endregion
     }
 }

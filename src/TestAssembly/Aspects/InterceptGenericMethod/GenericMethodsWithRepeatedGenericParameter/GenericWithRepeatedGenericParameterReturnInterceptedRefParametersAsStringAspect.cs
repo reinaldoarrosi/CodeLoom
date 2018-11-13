@@ -10,7 +10,7 @@ using TestAssemblyReference;
 
 namespace TestAssembly.Aspects.InterceptGenericMethod.GenericMethodsWithRepeatedGenericParameter
 {
-    public class GenericMethodsWithRepeatedGenericParameterReturnInterceptedParametersAsStringAspect : InterceptMethodAspect
+    public class GenericWithRepeatedGenericParameterReturnInterceptedRefParametersAsStringAspect : InterceptMethodAspect
     {
         public override void OnMethodInvoked(MethodContext context)
         {

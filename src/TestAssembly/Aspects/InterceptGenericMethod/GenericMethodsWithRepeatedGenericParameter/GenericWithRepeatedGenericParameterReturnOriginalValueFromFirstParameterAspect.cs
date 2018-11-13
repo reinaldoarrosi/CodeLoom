@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptGenericMethod.GenericMethodsWithRepeatedGenericParameter
 {
-    public class GenericMethodsWithRepeatedGenericParameterReturnOriginalParametersAsStringAspect : InterceptMethodAspect
+    public class GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameterAspect : InterceptMethodAspect
     {
         public override void OnMethodInvoked(MethodContext context)
         {
