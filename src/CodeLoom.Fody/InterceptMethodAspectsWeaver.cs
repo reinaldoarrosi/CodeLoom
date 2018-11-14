@@ -117,7 +117,7 @@ namespace CodeLoom.Fody
             if (originalMethod.HasGenericParameters)
             {
                 foreach (var genericParameter in originalMethod.GenericParameters)
-                    clone.GenericParameters.Add(new GenericParameter(genericParameter.Name, clone));
+                    clone.GenericParameters.Add(genericParameter.Clone(clone));
             }
 
             if (originalMethod.DebugInformation.HasSequencePoints)
@@ -173,12 +173,12 @@ namespace CodeLoom.Fody
 
             foreach (var genericParameter in typeDefinition.GenericParameters)
             {
-                typeDef.GenericParameters.Add(new GenericParameter(genericParameter.Name, typeDef));
+                typeDef.GenericParameters.Add(genericParameter.Clone(typeDef));
             }
 
             foreach (var genericParameter in originalMethod.GenericParameters)
             {
-                typeDef.GenericParameters.Add(new GenericParameter(genericParameter.Name, typeDef));
+                typeDef.GenericParameters.Add(genericParameter.Clone(typeDef));
             }
 
             return typeDef;

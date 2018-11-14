@@ -150,6 +150,25 @@ namespace CodeLoom.Fody
             return type;
         }
 
+        public static TypeReference MakeTypeReference(this TypeDefinition type, params GenericParameter[] arguments)
+        {
+            if (type.HasGenericParameters)
+            {
+                var genericType = new GenericInstanceType(type);
+
+                for (int i = 0; i < type.GenericParameters.Count; i++)
+                {
+                    genericType.GenericArguments.Add(arguments[i]);
+                }
+
+                return genericType;
+            }
+            else
+            {
+                return type;
+            }
+        }
+
         public static TypeReference MakeTypeReference(this TypeReference type, params GenericParameter[] arguments)
         {
             if (type.IsByReference)
@@ -209,10 +228,10 @@ namespace CodeLoom.Fody
             };
 
             foreach (var parameter in method.Parameters)
-                methodRef.Parameters.Add(new ParameterDefinition(parameter.ParameterType));
+                methodRef.Parameters.Add(parameter.Clone());
 
             foreach (var genericParameter in method.GenericParameters)
-                methodRef.GenericParameters.Add(new GenericParameter(genericParameter.Name, genericParameter.Owner));
+                methodRef.GenericParameters.Add(genericParameter.Clone());
 
             if (method.GenericParameters.Count > 0)
             {
@@ -233,6 +252,58 @@ namespace CodeLoom.Fody
         public static FieldReference MakeFieldReference(this FieldDefinition field, TypeReference declaringType)
         {
             return new FieldReference(field.Name, field.FieldType, declaringType);
+        }
+
+        public static ParameterDefinition Clone(this ParameterDefinition original)
+        {
+            var clone = new ParameterDefinition(original.ParameterType)
+            {
+                Attributes = original.Attributes,
+                Constant = original.Constant,
+                HasConstant = original.HasConstant,
+                HasDefault = original.HasConstant,
+                HasFieldMarshal = original.HasFieldMarshal,
+                IsIn = original.IsIn,
+                IsLcid = original.IsLcid,
+                IsOptional = original.IsOptional,
+                IsOut = original.IsOut,
+                IsReturnValue = original.IsReturnValue,
+                MarshalInfo = original.MarshalInfo,
+                Name = original.Name
+            };
+
+            foreach (var customAttr in original.CustomAttributes)
+            {
+                clone.CustomAttributes.Add(customAttr);
+            }
+
+            return clone;
+        }
+
+        public static GenericParameter Clone(this GenericParameter original, IGenericParameterProvider owner = null)
+        {
+            var clone = new GenericParameter(original.Name, owner ?? original.Owner)
+            {
+                Attributes = original.Attributes,
+                HasDefaultConstructorConstraint = original.HasDefaultConstructorConstraint,
+                HasNotNullableValueTypeConstraint  = original.HasNotNullableValueTypeConstraint,
+                HasReferenceTypeConstraint = original.HasReferenceTypeConstraint,
+                IsContravariant = original.IsContravariant,
+                IsCovariant = original.IsCovariant,
+                IsNonVariant = original.IsNonVariant                
+            };
+
+            foreach (var customAttr in original.CustomAttributes)
+            {
+                clone.CustomAttributes.Add(customAttr);
+            }
+
+            foreach (var constraint in original.Constraints)
+            {
+                clone.Constraints.Add(constraint);
+            }
+
+            return clone;
         }
 
         public static Type GetSystemType(this TypeDefinition typeDefinition)

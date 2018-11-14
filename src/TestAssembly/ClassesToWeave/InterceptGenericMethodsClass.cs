@@ -10,7 +10,6 @@ namespace TestAssembly.ClassesToWeave
 {
     public class InterceptGenericMethodsClass<T1, T2>
     {
-        /*
         #region Simple methods
         public T1 ReturnOriginalValueFromFirstParameter(T1 a, T2 b)
         {
@@ -126,7 +125,6 @@ namespace TestAssembly.ClassesToWeave
             l = new List<T4> { default(T4) };
         }
         #endregion
-        */
 
         #region Generic methods with repeated generic parameter
         public T1 GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameter<T3, T2>(T1 a, T2 b, T3 c)
@@ -134,7 +132,6 @@ namespace TestAssembly.ClassesToWeave
             return a;
         }
 
-        /*
         public T1 GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter<T3, T2>(T1 a, T2 b, T3 c)
         {
             return a;
@@ -142,22 +139,22 @@ namespace TestAssembly.ClassesToWeave
 
         public string GenericWithRepeatedGenericParameterReturnOriginalParametersAsString<T3, T2>(T1 a, T2 b, T3 c)
         {
-            return Helper.AsString(a, b);
+            return Helper.AsString(a, b, c);
         }
 
         public string GenericWithRepeatedGenericParameterReturnInterceptedParametersAsString<T3, T2>(T1 a, T2 b, T3 c)
         {
-            return Helper.AsString(a, b);
+            return Helper.AsString(a, b, c);
         }
 
         public string GenericWithRepeatedGenericParameterReturnOriginalRefParametersAsString<T3, T2>(ref T1 a, ref T2 b, ref T3 c)
         {
-            return Helper.AsString(a, b);
+            return Helper.AsString(a, b, c);
         }
 
         public string GenericWithRepeatedGenericParameterReturnInterceptedRefParametersAsString<T3, T2>(ref T1 a, ref T2 b, ref T3 c)
         {
-            return Helper.AsString(a, b);
+            return Helper.AsString(a, b, c);
         }
 
         public void GenericWithRepeatedGenericParameterReturnOriginalOutParameters<T3, T2>(out T1 a, out T2 b, out T3 c, out T1[] d, out T2[] e, out T3[] f, out List<T1> g, out List<T2> h, out List<T3> i)
@@ -185,7 +182,6 @@ namespace TestAssembly.ClassesToWeave
             h = new List<T2> { default(T2) };
             i = new List<T3> { default(T3) };
         } 
-        */
         #endregion
     }
 }

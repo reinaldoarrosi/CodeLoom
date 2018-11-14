@@ -15,8 +15,8 @@ namespace TestAssembly.Aspects.InterceptGenericMethod.GenericMethodsWithRepeated
         public override void OnMethodInvoked(MethodContext context)
         {
             context.Arguments.SetArgument(0, 2);
-            context.Arguments.SetArgument(1, new SimpleClass(2));
-            context.Arguments.SetArgument(2, new SimpleStruct(2));
+            context.Arguments.SetArgument(1, new SimpleStruct(2));
+            context.Arguments.SetArgument(2, new SimpleClass(2));
 
             context.Proceed();
         }

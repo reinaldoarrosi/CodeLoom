@@ -15,7 +15,6 @@ namespace CodeLoom.Tests
 {
     public class InterceptGenericMethodsTest : BaseTest
     {
-        /*
         public class SimpleMethods
         {
             [Fact]
@@ -409,7 +408,6 @@ namespace CodeLoom.Tests
                 });
             }
         }
-        */
 
         public class GenericMethodsWithRepeatedGenericParameter
         {
@@ -425,7 +423,6 @@ namespace CodeLoom.Tests
                 });
             }
 
-            /*
             [Fact]
             private void returns_intercepted_value_when_GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter_is_called()
             {
@@ -607,7 +604,6 @@ namespace CodeLoom.Tests
                     Assert.Equal(interceptedP9[1].Value, out9[1].Value);
                 });
             }
-            */
         }
     }
 }

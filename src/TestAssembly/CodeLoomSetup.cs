@@ -69,7 +69,6 @@ namespace TestAssembly
     {
         public override IEnumerable<InterceptMethodAspect> GetAspects(MethodBase method)
         {
-            /*
             #region InterceptMethodsClass
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueType)))
                 yield return new ReturnOriginalValueTypeAspect();
@@ -219,11 +218,9 @@ namespace TestAssembly
             #endregion
 
             #region Generic methods with repeated generic parameter
-            */
             if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameter)))
                 yield return new GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameterAspect();
 
-            /*
             if (method == typeof(InterceptGenericMethodsClass<,>).GetMethod(nameof(InterceptGenericMethodsClass<int, int>.GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter)))
                 yield return new GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameterAspect();
 
@@ -246,7 +243,6 @@ namespace TestAssembly
                 yield return new GenericWithRepeatedGenericParameterReturnInterceptedOutParametersAspect();
             #endregion
             #endregion
-            */
         }
     }
 }
