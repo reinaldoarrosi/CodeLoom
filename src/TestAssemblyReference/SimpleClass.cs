@@ -4,6 +4,9 @@ namespace TestAssemblyReference
 {
     public class SimpleClass
     {
+        public SimpleClass()
+        { }
+
         public SimpleClass(int value)
         {
             Value = value;

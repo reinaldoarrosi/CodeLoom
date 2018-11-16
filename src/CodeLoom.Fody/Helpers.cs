@@ -1,5 +1,6 @@
 ﻿using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Collections.Generic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -62,115 +63,27 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static TypeReference GetClosedGenericType(this TypeReference type, MethodReference closedGenericMethod, ModuleDefinition moduleDefinition)
-        {
-            if (type.IsByReference)
-            {
-                var refType = (type as ByReferenceType).ElementType.GetClosedGenericType(closedGenericMethod, moduleDefinition);
-                var newType = new ByReferenceType(refType);
-
-                return newType;
-            }
-
-            if (type.IsGenericInstance)
-            {
-                var currentGenericType = type as GenericInstanceType;
-                var newGenericType = new GenericInstanceType(currentGenericType.ElementType.GetClosedGenericType(closedGenericMethod, moduleDefinition));
-
-                foreach (var p in currentGenericType.GenericArguments)
-                {
-                    newGenericType.GenericArguments.Add(p.GetClosedGenericType(closedGenericMethod, moduleDefinition));
-                }
-
-                return newGenericType;
-            }
-
-            if (type.IsGenericParameter)
-            {
-                var genericParameter = closedGenericMethod.GenericParameters.FirstOrDefault(t => t.FullName == type.FullName);
-
-                if (genericParameter == null)
-                    type = type.GetClosedGenericType(closedGenericMethod.DeclaringType, moduleDefinition);
-            }
-
-            if (!type.IsGenericParameter)
-            {
-                type = moduleDefinition.ImportReference(type);
-            }
-
-            return type;
-        }
-
-        public static TypeReference GetClosedGenericType(this TypeReference type, TypeReference closedGenericType, ModuleDefinition moduleDefinition)
-        {
-            if (type.IsByReference)
-            {
-                var refType = (type as ByReferenceType).ElementType.GetClosedGenericType(closedGenericType, moduleDefinition);
-                var newType = new ByReferenceType(refType);
-
-                return newType;
-            }
-
-            if (type.IsGenericInstance)
-            {
-                var currentGenericType = type as GenericInstanceType;
-                var newGenericType = new GenericInstanceType(currentGenericType.ElementType.GetClosedGenericType(closedGenericType, moduleDefinition));
-
-                foreach (var p in currentGenericType.GenericArguments)
-                {
-                    newGenericType.GenericArguments.Add(p.GetClosedGenericType(closedGenericType, moduleDefinition));
-                }
-
-                return newGenericType;
-            }
-
-            if (type.IsGenericParameter)
-            {
-                if (!(closedGenericType is GenericInstanceType))
-                    throw new ArgumentException($"{nameof(closedGenericType)} must be an instance of {typeof(GenericInstanceType).FullName}");
-
-                var openGenericType = (closedGenericType as GenericInstanceType).ElementType;
-
-                if (openGenericType.GenericParameters.Count <= 0)
-                    throw new ArgumentException($"{closedGenericType.FullName} does not contain any generic parameters");
-
-                var genericParameter = openGenericType.GenericParameters.FirstOrDefault(t => t.FullName == type.FullName);
-
-                if (genericParameter == null)
-                    throw new KeyNotFoundException($"Could not find generic parameter {type.FullName} in {closedGenericType.FullName}");
-
-                type = (closedGenericType as GenericInstanceType).GenericArguments[genericParameter.Position];
-            }
-
-            if (!type.IsGenericParameter)
-            {
-                type = moduleDefinition.ImportReference(type);
-            }
-
-            return type;
-        }
-
-        public static TypeReference MakeTypeReference(this TypeDefinition type, params GenericParameter[] arguments)
-        {
-            if (type.HasGenericParameters)
-            {
-                var genericType = new GenericInstanceType(type);
-
-                for (int i = 0; i < type.GenericParameters.Count; i++)
-                {
-                    genericType.GenericArguments.Add(arguments[i]);
-                }
-
-                return genericType;
-            }
-            else
-            {
-                return type;
-            }
-        }
-
         public static TypeReference MakeTypeReference(this TypeReference type, params GenericParameter[] arguments)
         {
+            if (type.IsDefinition)
+            {
+                if (type.HasGenericParameters)
+                {
+                    var genericType = new GenericInstanceType(type);
+
+                    for (int i = 0; i < type.GenericParameters.Count; i++)
+                    {
+                        genericType.GenericArguments.Add(arguments[i]);
+                    }
+
+                    return genericType;
+                }
+                else
+                {
+                    return type;
+                }
+            }
+
             if (type.IsByReference)
             {
                 var byRefType = type as ByReferenceType;
@@ -227,11 +140,8 @@ namespace CodeLoom.Fody
                 CallingConvention = method.CallingConvention
             };
 
-            foreach (var parameter in method.Parameters)
-                methodRef.Parameters.Add(parameter.Clone());
-
-            foreach (var genericParameter in method.GenericParameters)
-                methodRef.GenericParameters.Add(genericParameter.Clone());
+            methodRef.CopyParameters(method.Parameters);
+            methodRef.CopyGenericParameters(method.GenericParameters);
 
             if (method.GenericParameters.Count > 0)
             {
@@ -254,56 +164,57 @@ namespace CodeLoom.Fody
             return new FieldReference(field.Name, field.FieldType, declaringType);
         }
 
-        public static ParameterDefinition Clone(this ParameterDefinition original)
+        public static void CopyParameters(this MethodReference method, Collection<ParameterDefinition> copySource)
         {
-            var clone = new ParameterDefinition(original.ParameterType)
+            foreach (var original in copySource)
             {
-                Attributes = original.Attributes,
-                Constant = original.Constant,
-                HasConstant = original.HasConstant,
-                HasDefault = original.HasConstant,
-                HasFieldMarshal = original.HasFieldMarshal,
-                IsIn = original.IsIn,
-                IsLcid = original.IsLcid,
-                IsOptional = original.IsOptional,
-                IsOut = original.IsOut,
-                IsReturnValue = original.IsReturnValue,
-                MarshalInfo = original.MarshalInfo,
-                Name = original.Name
-            };
+                var clone = new ParameterDefinition(original.Name, original.Attributes, original.ParameterType);
 
-            foreach (var customAttr in original.CustomAttributes)
-            {
-                clone.CustomAttributes.Add(customAttr);
+                foreach (var customAttr in original.CustomAttributes)
+                {
+                    clone.CustomAttributes.Add(customAttr);
+                }
+
+                method.Parameters.Add(clone);
             }
-
-            return clone;
         }
 
-        public static GenericParameter Clone(this GenericParameter original, IGenericParameterProvider owner = null)
+        public static void CopyGenericParameters(this IGenericParameterProvider target, Collection<GenericParameter> copySource)
         {
-            var clone = new GenericParameter(original.Name, owner ?? original.Owner)
-            {
-                Attributes = original.Attributes,
-                HasDefaultConstructorConstraint = original.HasDefaultConstructorConstraint,
-                HasNotNullableValueTypeConstraint  = original.HasNotNullableValueTypeConstraint,
-                HasReferenceTypeConstraint = original.HasReferenceTypeConstraint,
-                IsContravariant = original.IsContravariant,
-                IsCovariant = original.IsCovariant,
-                IsNonVariant = original.IsNonVariant                
-            };
+            var originalToCloneMap = new Dictionary<GenericParameter, GenericParameter>();
 
-            foreach (var customAttr in original.CustomAttributes)
+            foreach (var original in copySource)
             {
-                clone.CustomAttributes.Add(customAttr);
+                var clone = new GenericParameter(original.Name, target) { Attributes = original.Attributes };
+
+                foreach (var customAttr in original.CustomAttributes)
+                {
+                    clone.CustomAttributes.Add(customAttr);
+                }
+
+                originalToCloneMap.Add(original, clone);
             }
 
-            foreach (var constraint in original.Constraints)
+            foreach (var item in originalToCloneMap)
             {
-                clone.Constraints.Add(constraint);
+                var original = item.Key;
+                var clone = item.Value;
+
+                foreach (var constraint in original.Constraints)
+                {
+                    var cloneConstraint = constraint;
+
+                    if (constraint.IsGenericParameter && originalToCloneMap.ContainsKey(constraint as GenericParameter))
+                        cloneConstraint = originalToCloneMap[constraint as GenericParameter];
+
+                    clone.Constraints.Add(cloneConstraint);
+                }
             }
 
-            return clone;
+            foreach (var item in originalToCloneMap.Values)
+            {
+                target.GenericParameters.Add(item);
+            }
         }
 
         public static Type GetSystemType(this TypeDefinition typeDefinition)

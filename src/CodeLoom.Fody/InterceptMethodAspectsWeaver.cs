@@ -114,11 +114,7 @@ namespace CodeLoom.Fody
             foreach (var exceptionHandler in originalMethod.Body.ExceptionHandlers)
                 clone.Body.ExceptionHandlers.Add(exceptionHandler);
 
-            if (originalMethod.HasGenericParameters)
-            {
-                foreach (var genericParameter in originalMethod.GenericParameters)
-                    clone.GenericParameters.Add(genericParameter.Clone(clone));
-            }
+            clone.CopyGenericParameters(originalMethod.GenericParameters);
 
             if (originalMethod.DebugInformation.HasSequencePoints)
             {
@@ -168,18 +164,10 @@ namespace CodeLoom.Fody
             var methodBindingTypeRef = ModuleDefinition.ImportReference(typeof(MethodBinding));
             var typeAttributes = TypeAttributes.Sealed | TypeAttributes.NestedPrivate;
             var typeName = Helpers.GetUniqueBindingName(typeDefinition, originalMethod.Name);
-            var typeDef = new TypeDefinition(typeDefinition.Namespace, typeName, typeAttributes);
-            typeDef.BaseType = methodBindingTypeRef;
+            var typeDef = new TypeDefinition(typeDefinition.Namespace, typeName, typeAttributes, methodBindingTypeRef);
 
-            foreach (var genericParameter in typeDefinition.GenericParameters)
-            {
-                typeDef.GenericParameters.Add(genericParameter.Clone(typeDef));
-            }
-
-            foreach (var genericParameter in originalMethod.GenericParameters)
-            {
-                typeDef.GenericParameters.Add(genericParameter.Clone(typeDef));
-            }
+            typeDef.CopyGenericParameters(typeDefinition.GenericParameters);
+            typeDef.CopyGenericParameters(originalMethod.GenericParameters);
 
             return typeDef;
         }

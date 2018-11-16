@@ -54,6 +54,11 @@ namespace CodeLoom.Fody
         {
             if (type.IsInterface) return;
 
+            foreach (var nestedType in type.NestedTypes)
+            {
+                WeaveType(nestedType);
+            }
+
             LogInfo($"Weaving type {type.FullName}");
 
             LogInfo($"Weaving {nameof(InterceptMethodAspect)}");
@@ -64,11 +69,6 @@ namespace CodeLoom.Fody
 
             LogInfo($"Weaving {nameof(ImplementInterfaceAspect)}");
             ImplementInterfaceAspectsWeaver.Weave(type);
-
-            foreach (var nestedType in type.NestedTypes)
-            {
-                WeaveType(nestedType);
-            }
         }
 
         private CodeLoomSetup GetSetup(ModuleDefinition moduleDefinition)
