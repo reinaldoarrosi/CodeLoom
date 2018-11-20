@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -127,37 +128,37 @@ namespace TestAssembly.ClassesToWeave
         #endregion
 
         #region Generic methods with repeated generic parameter
-        public T1 GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameter<T3, T2>(T1 a, T2 b, T3 c) where T3: T2
+        public T1 GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameter<T3, T2>(T1 a, T2 b, T3 c) where T3: T2 where T2 : IEnumerable
         {
             return a;
         }
 
-        public T1 GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter<T3, T2>(T1 a, T2 b, T3 c) where T3 : T2
+        public T1 GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter<T3, T2>(T1 a, T2 b, T3 c) where T3 : T2 where T2 : IEnumerable
         {
             return a;
         }
 
-        public string GenericWithRepeatedGenericParameterReturnOriginalParametersAsString<T3, T2>(T1 a, T2 b, T3 c) where T3 : T2
+        public string GenericWithRepeatedGenericParameterReturnOriginalParametersAsString<T3, T2>(T1 a, T2 b, T3 c) where T3 : T2 where T2 : IEnumerable
         {
             return Helper.AsString(a, b, c);
         }
 
-        public string GenericWithRepeatedGenericParameterReturnInterceptedParametersAsString<T3, T2>(T1 a, T2 b, T3 c) where T3 : T2
+        public string GenericWithRepeatedGenericParameterReturnInterceptedParametersAsString<T3, T2>(T1 a, T2 b, T3 c) where T3 : T2 where T2 : IEnumerable
         {
             return Helper.AsString(a, b, c);
         }
 
-        public string GenericWithRepeatedGenericParameterReturnOriginalRefParametersAsString<T3, T2>(ref T1 a, ref T2 b, ref T3 c) where T3 : T2
+        public string GenericWithRepeatedGenericParameterReturnOriginalRefParametersAsString<T3, T2>(ref T1 a, ref T2 b, ref T3 c) where T3 : T2 where T2 : IEnumerable
         {
             return Helper.AsString(a, b, c);
         }
 
-        public string GenericWithRepeatedGenericParameterReturnInterceptedRefParametersAsString<T3, T2>(ref T1 a, ref T2 b, ref T3 c) where T3 : T2
+        public string GenericWithRepeatedGenericParameterReturnInterceptedRefParametersAsString<T3, T2>(ref T1 a, ref T2 b, ref T3 c) where T3 : T2 where T2 : IEnumerable
         {
             return Helper.AsString(a, b, c);
         }
 
-        public void GenericWithRepeatedGenericParameterReturnOriginalOutParameters<T3, T2>(out T1 a, out T2 b, out T3 c, out T1[] d, out T2[] e, out T3[] f, out List<T1> g, out List<T2> h, out List<T3> i) where T3 : T2
+        public void GenericWithRepeatedGenericParameterReturnOriginalOutParameters<T3, T2>(out T1 a, out T2 b, out T3 c, out T1[] d, out T2[] e, out T3[] f, out List<T1> g, out List<T2> h, out List<T3> i) where T3 : T2 where T2 : IEnumerable
         {
             a = default(T1);
             b = default(T2);
@@ -170,7 +171,7 @@ namespace TestAssembly.ClassesToWeave
             i = new List<T3> { default(T3) };
         }
 
-        public void GenericWithRepeatedGenericParameterReturnInterceptedOutParameters<T3, T2>(out T1 a, out T2 b, out T3 c, out T1[] d, out T2[] e, out T3[] f, out List<T1> g, out List<T2> h, out List<T3> i) where T3 : T2
+        public void GenericWithRepeatedGenericParameterReturnInterceptedOutParameters<T3, T2>(out T1 a, out T2 b, out T3 c, out T1[] d, out T2[] e, out T3[] f, out List<T1> g, out List<T2> h, out List<T3> i) where T3 : T2 where T2 : IEnumerable
         {
             a = default(T1);
             b = default(T2);

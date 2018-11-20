@@ -1,10 +1,12 @@
 ﻿using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Mono.Collections.Generic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace CodeLoom.Fody
@@ -131,7 +133,7 @@ namespace CodeLoom.Fody
             return type;
         }
 
-        public static MethodReference MakeMethodReference(this MethodDefinition method, TypeReference declaringType, params GenericParameter[] arguments)
+        public static MethodReference MakeMethodReference(this MethodReference method, TypeReference declaringType, params GenericParameter[] arguments)
         {
             var methodRef = new MethodReference(method.Name, method.ReturnType, declaringType)
             {
@@ -159,9 +161,21 @@ namespace CodeLoom.Fody
             return methodRef;
         }
 
-        public static FieldReference MakeFieldReference(this FieldDefinition field, TypeReference declaringType)
+        public static FieldReference MakeFieldReference(this FieldReference field, TypeReference declaringType)
         {
             return new FieldReference(field.Name, field.FieldType, declaringType);
+        }
+
+        public static GenericInstanceMethod MakeGenericInstanceMethod(this MethodReference method, params TypeReference[] arguments)
+        {
+            var genericInstanceMethod = new GenericInstanceMethod(method);
+
+            foreach (var arg in arguments)
+            {
+                genericInstanceMethod.GenericArguments.Add(arg);
+            }
+
+            return genericInstanceMethod;
         }
 
         public static void CopyParameters(this MethodReference method, Collection<ParameterDefinition> copySource)
@@ -215,6 +229,28 @@ namespace CodeLoom.Fody
             {
                 target.GenericParameters.Add(item);
             }
+        }
+
+        public static bool IsAsyncMethod(this MethodDefinition method)
+        {
+            var asyncStateMachineAttribute = method.CustomAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == typeof(AsyncStateMachineAttribute).FullName);
+            if (asyncStateMachineAttribute == null) return false;
+
+            var stateMachineType = (asyncStateMachineAttribute.ConstructorArguments.First().Value as TypeReference).Resolve();
+            if (stateMachineType == null) return false;
+
+            return stateMachineType.CustomAttributes.Any(attr => attr.AttributeType.FullName == typeof(CompilerGeneratedAttribute).FullName);
+        }
+
+        public static bool IsAsyncMethod(this MethodBase method)
+        {
+            var asyncStateMachineAttribute = method.CustomAttributes.FirstOrDefault(attr => attr.AttributeType == typeof(AsyncStateMachineAttribute));
+            if (asyncStateMachineAttribute == null) return false;
+
+            var stateMachineType = (asyncStateMachineAttribute.ConstructorArguments.First().Value as Type);
+            if (stateMachineType == null) return false;
+
+            return stateMachineType.CustomAttributes.Any(attr => attr.AttributeType == typeof(CompilerGeneratedAttribute));
         }
 
         public static Type GetSystemType(this TypeDefinition typeDefinition)

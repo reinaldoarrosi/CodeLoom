@@ -62,7 +62,7 @@ namespace CodeLoom.Fody
 
                 WeavedProperties.Add(property, true);
 
-                var aspects = ModuleWeaver.Setup.GetAspects(property).ToArray();
+                var aspects = ModuleWeaver.Setup.GetPropertyAspects(property).ToArray();
                 if (aspects.Length <= 0)
                 {
                     ModuleWeaver.LogInfo($"Property {propertyDefinition.Name} from type {typeDefinition.FullName} will not be weaved because no aspect was applied to it");

@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Mono.Cecil;
 using System.Reflection;
+using System.Threading;
 
 namespace CodeLoom.Tests
 {

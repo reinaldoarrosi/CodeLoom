@@ -7,138 +7,131 @@ using System.Threading.Tasks;
 using CodeLoom.Aspects;
 using CodeLoom.Bindings;
 using CodeLoom.Contexts;
-using TestAssembly.Aspects.InterceptGenericMethod;
-using TestAssembly.Aspects.InterceptMethod;
 using TestAssembly.ClassesToWeave;
-using TestAssemblyReference;
 
 [assembly:CodeLoom.CodeLoomSetup(typeof(TestAssembly.CodeLoomSetup))]
 
 namespace TestAssembly
 {
-    public class Test<T1, T2>
+    public class Test
     {
-        private class Binding<T3, T2> : MethodBinding
+        private class Binding : AsyncMethodBinding
         {
-            public static Binding<T3, T2> INSTANCE;
+            public static Binding INSTANCE;
 
             static Binding()
             {
-                INSTANCE = new Binding<T3, T2>(new[] { new Aspects.InterceptGenericMethod.GenericMethods.GenericReturnOriginalValueFromFirstParameterAspect() });
+                INSTANCE = new Binding(new[] { new Aspects.InterceptAsyncMethod.ReturnInterceptedValueAspect() });
             }
 
-            public Binding(InterceptMethodAspect[] aspects)
+            public Binding(InterceptAsyncMethodAspect[] aspects)
                 : base(aspects)
             { }
 
-            protected override void Proceed(MethodContext context)
+            protected override Task Proceed(AsyncMethodContext context)
             {
-                var instance = (Test<T1, T2>)context.Instance;
+                var instance = (Test)context.Instance;
                 var arguments = context.Arguments;
 
-                T1 a = (T1)arguments.GetArgument(0);
-                T2 b = (T2)arguments.GetArgument(1);
-                T3 c = (T3)arguments.GetArgument(2);
-                T1 returnValue = instance.Original_GenericMethod<T3, T2>(a, b, c);
+                int a = (int)arguments.GetArgument(0);
+                instance.Original_MethodA(a);
 
-                context.SetReturnValue(returnValue);
+                return Task.CompletedTask;
             }
         }
 
-        public T1 GenericMethod<T3, T2>(T1 a, T2 b, T3 c)
+        public void MethodA(int a)
         {
-            object[] values = new object[] { a, b, c };
-            MethodBase methodBase = typeof(Test<,>).GetMethod("GenericMethod");
+            object[] values = new object[] { a };
+            MethodBase methodBase = typeof(Test).GetMethod("GenericMethod");
             Arguments arguments = new Arguments(values);
-            MethodContext context = new MethodContext(this, methodBase, arguments);
+            AsyncMethodContext context = new AsyncMethodContext(this, methodBase, arguments);
 
-            Binding<T3, T2>.INSTANCE.Run(context);
-
-            return (T1)context.ReturnValue;
+            var t = Binding.INSTANCE.Run(context);
         }
 
-        public T1 Original_GenericMethod<T3, T2>(T1 a, T2 b, T3 c)
+        public async void Original_MethodA(int a)
         {
-            return a;
+            await Task.Delay(1);
         }
     }
 
     public class CodeLoomSetup : CodeLoom.CodeLoomSetup
     {
-        public override IEnumerable<InterceptMethodAspect> GetAspects(MethodBase method)
+        public override IEnumerable<InterceptMethodAspect> GetMethodAspects(MethodBase method)
         {
             #region InterceptMethodsClass
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueType)))
-                yield return new ReturnOriginalValueTypeAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalValueTypeAspect();
             
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefType)))
-                yield return new ReturnOriginalRefTypeAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalRefTypeAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalValueType)))
-                yield return new ReturnOriginalExternalValueTypeAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalExternalValueTypeAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalRefType)))
-                yield return new ReturnOriginalExternalRefTypeAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalExternalRefTypeAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueTypeArray)))
-                yield return new ReturnOriginalValueTypeArrayAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalValueTypeArrayAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefTypeArray)))
-                yield return new ReturnOriginalRefTypeArrayAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalRefTypeArrayAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalValueTypeArray)))
-                yield return new ReturnOriginalExternalValueTypeArrayAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalExternalValueTypeArrayAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalRefTypeArray)))
-                yield return new ReturnOriginalExternalRefTypeArrayAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalExternalRefTypeArrayAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueTypeList)))
-                yield return new ReturnOriginalValueTypeListAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalValueTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefTypeList)))
-                yield return new ReturnOriginalRefTypeListAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalRefTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalValueTypeList)))
-                yield return new ReturnOriginalExternalValueTypeListAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalExternalValueTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalExternalRefTypeList)))
-                yield return new ReturnOriginalExternalRefTypeListAspect();
+                yield return new Aspects.InterceptMethod.ReturnOriginalExternalRefTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedValueType)))
-                yield return new ReturnInterceptedValueTypeAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedValueTypeAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedRefType)))
-                yield return new ReturnInterceptedRefTypeAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedRefTypeAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalValueType)))
-                yield return new ReturnInterceptedExternalValueTypeAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedExternalValueTypeAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalRefType)))
-                yield return new ReturnInterceptedExternalRefTypeAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedExternalRefTypeAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedValueTypeArray)))
-                yield return new ReturnInterceptedValueTypeArrayAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedValueTypeArrayAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedRefTypeArray)))
-                yield return new ReturnInterceptedRefTypeArrayAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedRefTypeArrayAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalValueTypeArray)))
-                yield return new ReturnInterceptedExternalValueTypeArrayAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedExternalValueTypeArrayAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalRefTypeArray)))
-                yield return new ReturnInterceptedExternalRefTypeArrayAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedExternalRefTypeArrayAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedValueTypeList)))
-                yield return new ReturnInterceptedValueTypeListAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedValueTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedRefTypeList)))
-                yield return new ReturnInterceptedRefTypeListAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedRefTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalValueTypeList)))
-                yield return new ReturnInterceptedExternalValueTypeListAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedExternalValueTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnInterceptedExternalRefTypeList)))
-                yield return new ReturnInterceptedExternalRefTypeListAspect();
+                yield return new Aspects.InterceptMethod.ReturnInterceptedExternalRefTypeListAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalParametersAsString)))
                 yield return new Aspects.InterceptMethod.ReturnOriginalParametersAsStringAspect();
@@ -159,7 +152,7 @@ namespace TestAssembly
                 yield return new Aspects.InterceptMethod.ReturnInterceptedOutParametersAspect();
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ChangeSumToSubtract)))
-                yield return new ChangeSumToSubtractAspect();
+                yield return new Aspects.InterceptMethod.ChangeSumToSubtractAspect();
             #endregion
 
             #region InterceptGenericMethodsClass
@@ -321,6 +314,59 @@ namespace TestAssembly
             if (method == typeof(InterceptGenericMethodsWithConstraintsClass<,>).GetMethod(nameof(InterceptGenericMethodsWithConstraintsClass<int, int>.GenericWithRepeatedGenericParameterReturnInterceptedOutParameters)))
                 yield return new Aspects.InterceptGenericMethodWithConstraints.GenericMethodsWithRepeatedGenericParameter.GenericWithRepeatedGenericParameterReturnInterceptedOutParametersAspect();
             #endregion
+            #endregion
+        }
+
+        public override IEnumerable<InterceptAsyncMethodAspect> GetAsyncMethodAspects(MethodBase method)
+        {
+            #region InterceptAsyncMethodsClass
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalValue)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnOriginalValueAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalValueArray)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnOriginalValueArrayAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalValueList)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnOriginalValueListAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnInterceptedValue)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnInterceptedValueAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnInterceptedValueArray)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnInterceptedValueArrayAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnInterceptedValueList)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnInterceptedValueListAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalGenericValue)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnOriginalGenericValueAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalGenericValueArray)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnOriginalGenericValueArrayAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalGenericValueList)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnOriginalGenericValueListAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnInterceptedGenericValue)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnInterceptedGenericValueAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnInterceptedGenericValueArray)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnInterceptedGenericValueArrayAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnInterceptedGenericValueList)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnInterceptedGenericValueListAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalParametersAsString)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnOriginalParametersAsStringAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnInterceptedParametersAsString)))
+                yield return new Aspects.InterceptAsyncMethod.ReturnInterceptedParametersAsStringAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.InterceptAsyncMethodThatReturnsTask)))
+                yield return new Aspects.InterceptAsyncMethod.InterceptAsyncMethodThatReturnsTaskAspect();
+
+            if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.InterceptAsyncMethodThatReturnsVoid)))
+                yield return new Aspects.InterceptAsyncMethod.InterceptAsyncMethodThatReturnsVoidAspect();
             #endregion
         }
     }

@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using Mono.Cecil.Rocks;
 
 namespace CodeLoom.Fody
 {
@@ -68,25 +70,46 @@ namespace CodeLoom.Fody
                     continue;
                 }
 
-                var aspects = ModuleWeaver.Setup.GetAspects(method).ToArray();
-                if (aspects.Length <= 0)
+                if (method.IsAsyncMethod())
                 {
-                    ModuleWeaver.LogInfo($"Method {originalMethod.Name} from type {typeDefinition.FullName} will not be weaved because no aspect was applied to it");
-                    continue;
+                    var aspects = ModuleWeaver.Setup.GetAsyncMethodAspects(method).ToArray();
+                    if (aspects.Length <= 0)
+                    {
+                        ModuleWeaver.LogInfo($"Method {originalMethod.Name} from type {typeDefinition.FullName} will not be weaved because no aspect was applied to it");
+                        continue;
+                    }
+
+                    var clonedMethod = CloneMethod(typeDefinition, originalMethod, true);
+                    typeDefinition.Methods.Add(clonedMethod);
+
+                    var methodBindingType = CreateMethodBinding(typeDefinition, originalMethod, clonedMethod, aspects, true);
+                    typeDefinition.NestedTypes.Add(methodBindingType);
+
+                    RewriteOriginalMethod(typeDefinition, originalMethod, methodBindingType, true);
+                }
+                else
+                {
+                    var aspects = ModuleWeaver.Setup.GetMethodAspects(method).ToArray();
+                    if (aspects.Length <= 0)
+                    {
+                        ModuleWeaver.LogInfo($"Method {originalMethod.Name} from type {typeDefinition.FullName} will not be weaved because no aspect was applied to it");
+                        continue;
+                    }
+
+                    var clonedMethod = CloneMethod(typeDefinition, originalMethod, false);
+                    typeDefinition.Methods.Add(clonedMethod);
+
+                    var methodBindingType = CreateMethodBinding(typeDefinition, originalMethod, clonedMethod, aspects, false);
+                    typeDefinition.NestedTypes.Add(methodBindingType);
+
+                    RewriteOriginalMethod(typeDefinition, originalMethod, methodBindingType, false);
                 }
 
-                var clonedMethod = CloneMethod(typeDefinition, originalMethod);
-                typeDefinition.Methods.Add(clonedMethod);
-
-                var methodBindingType = CreateMethodBinding(typeDefinition, originalMethod, clonedMethod, aspects);
-                typeDefinition.NestedTypes.Add(methodBindingType);
-
-                RewriteOriginalMethod(typeDefinition, originalMethod, methodBindingType);
                 WeavedMethods.Add(method, true);
             }
         }
 
-        private MethodDefinition CloneMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod)
+        private MethodDefinition CloneMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod, bool async)
         {
             var attributes = originalMethod.Attributes;
             attributes &= ~MethodAttributes.Public;
@@ -140,28 +163,28 @@ namespace CodeLoom.Fody
             return clone;
         }
 
-        private TypeDefinition CreateMethodBinding(TypeDefinition typeDefinition, MethodDefinition originalMethod, MethodDefinition clonedMethod, InterceptMethodAspect[] aspects)
+        private TypeDefinition CreateMethodBinding(TypeDefinition typeDefinition, MethodDefinition originalMethod, MethodDefinition clonedMethod, object[] aspects, bool async)
         {
-            var methodBindingTypeDef = CreateMethodBindingTypeDef(typeDefinition, originalMethod);
+            var methodBindingTypeDef = CreateMethodBindingTypeDef(typeDefinition, originalMethod, async);
 
-            var instanceField = CreateMethodBindingInstanceField(methodBindingTypeDef);
+            var instanceField = CreateMethodBindingInstanceField(methodBindingTypeDef, async);
             methodBindingTypeDef.Fields.Add(instanceField);
 
-            var ctor = CreateMethodBindingCtor(methodBindingTypeDef);
+            var ctor = CreateMethodBindingCtor(methodBindingTypeDef, async);
             methodBindingTypeDef.Methods.Add(ctor);
 
-            var staticCtor = CreateMethodBindingStaticCtor(methodBindingTypeDef, instanceField, ctor, aspects);
+            var staticCtor = CreateMethodBindingStaticCtor(methodBindingTypeDef, instanceField, ctor, aspects, async);
             methodBindingTypeDef.Methods.Add(staticCtor);
 
-            var proceedMethod = CreateMethodBindingProceedMethod(typeDefinition, clonedMethod, methodBindingTypeDef);
+            var proceedMethod = CreateMethodBindingProceedMethod(typeDefinition, clonedMethod, methodBindingTypeDef, async);
             methodBindingTypeDef.Methods.Add(proceedMethod);
 
             return methodBindingTypeDef;
         }
 
-        private TypeDefinition CreateMethodBindingTypeDef(TypeDefinition typeDefinition, MethodDefinition originalMethod)
+        private TypeDefinition CreateMethodBindingTypeDef(TypeDefinition typeDefinition, MethodDefinition originalMethod, bool async)
         {
-            var methodBindingTypeRef = ModuleDefinition.ImportReference(typeof(MethodBinding));
+            var methodBindingTypeRef = ModuleDefinition.ImportReference(GetMethodBindingType(async));
             var typeAttributes = TypeAttributes.Sealed | TypeAttributes.NestedPrivate;
             var typeName = Helpers.GetUniqueBindingName(typeDefinition, originalMethod.Name);
             var typeDef = new TypeDefinition(typeDefinition.Namespace, typeName, typeAttributes, methodBindingTypeRef);
@@ -172,23 +195,23 @@ namespace CodeLoom.Fody
             return typeDef;
         }
 
-        private FieldDefinition CreateMethodBindingInstanceField(TypeDefinition methodBindingTypeDef)
+        private FieldDefinition CreateMethodBindingInstanceField(TypeDefinition methodBindingTypeDef, bool async)
         {
             var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(methodBindingTypeDef.GenericParameters.ToArray());
             var instanceFieldAttributes = FieldAttributes.Static | FieldAttributes.Public;
             var instanceField = new FieldDefinition("INSTANCE", instanceFieldAttributes, methodBindingTypeRef);
 
             return instanceField;
-        }       
+        }
 
-        private MethodDefinition CreateMethodBindingCtor(TypeDefinition methodBindingTypeDef)
+        private MethodDefinition CreateMethodBindingCtor(TypeDefinition methodBindingTypeDef, bool async)
         {
-            var methodBindingCtorRef = ModuleDefinition.ImportReference(typeof(MethodBinding).GetConstructors().First());
+            var methodBindingType = GetMethodBindingType(async);
+            var methodBindingCtorRef = ModuleDefinition.ImportReference(methodBindingType.GetConstructors().First());
             var ctorAttributes = MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName;
             var ctor = new MethodDefinition(".ctor", ctorAttributes, ModuleWeaver.TypeSystem.VoidReference);
             ctor.Body.InitLocals = true;
-
-            var interceptMethodAspectTypeRef = ModuleDefinition.ImportReference(typeof(InterceptMethodAspect));
+            TypeReference interceptMethodAspectTypeRef = GetAspectTypeRef(async);
             ctor.Parameters.Add(new ParameterDefinition(new ArrayType(interceptMethodAspectTypeRef)));
 
             var ilProcessor = ctor.Body.GetILProcessor();
@@ -200,7 +223,7 @@ namespace CodeLoom.Fody
             return ctor;
         }
 
-        private MethodDefinition CreateMethodBindingStaticCtor(TypeDefinition methodBindingTypeDef, FieldDefinition instanceField, MethodDefinition ctor, InterceptMethodAspect[] aspects)
+        private MethodDefinition CreateMethodBindingStaticCtor(TypeDefinition methodBindingTypeDef, FieldDefinition instanceField, MethodDefinition ctor, object[] aspects, bool async)
         {
             var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(methodBindingTypeDef.GenericParameters.ToArray());
             var ctorRef = ctor.MakeMethodReference(methodBindingTypeRef, ctor.GenericParameters.ToArray());
@@ -210,7 +233,7 @@ namespace CodeLoom.Fody
             var staticCtor = new MethodDefinition(".cctor", staticCtorAttributes, ModuleWeaver.TypeSystem.VoidReference);
             staticCtor.Body.InitLocals = true;
 
-            var baseAspectTypeRef = ModuleDefinition.ImportReference(typeof(InterceptMethodAspect));
+            var baseAspectTypeRef = GetAspectTypeRef(async);
             var aspectsArrayVar = new VariableDefinition(new ArrayType(baseAspectTypeRef));
             staticCtor.Body.Variables.Add(aspectsArrayVar);
 
@@ -239,19 +262,22 @@ namespace CodeLoom.Fody
             return staticCtor;
         }
 
-        private MethodDefinition CreateMethodBindingProceedMethod(TypeDefinition typeDefinition, MethodDefinition clonedMethod, TypeDefinition methodBindingTypeDef)
+        private MethodDefinition CreateMethodBindingProceedMethod(TypeDefinition typeDefinition, MethodDefinition clonedMethod, TypeDefinition methodBindingTypeDef, bool async)
         {
             var availableGenericParameters = methodBindingTypeDef.GenericParameters.ToArray();
             var typeDefinitionRef = typeDefinition.MakeTypeReference(typeDefinition.GenericParameters.ToArray());
             var clonedMethodRef = clonedMethod.MakeMethodReference(typeDefinitionRef, availableGenericParameters);
             var bindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
-            var methodBindingProceedMethodRef = ModuleDefinition.ImportReference(typeof(MethodBinding).GetMethod("Proceed", bindingFlags));
+            var methodBindingType = GetMethodBindingType(async);
+            var methodBindingProceedMethodRef = ModuleDefinition.ImportReference(methodBindingType.GetMethod("Proceed", bindingFlags));
             var proceedMethodAttributes = MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual;
-            var proceedMethod = new MethodDefinition("Proceed", proceedMethodAttributes, ModuleWeaver.TypeSystem.VoidReference);
+            var proceedMethodReturnType = async ? ModuleDefinition.ImportReference(typeof(Task)) : ModuleWeaver.TypeSystem.VoidReference;
+            var proceedMethod = new MethodDefinition("Proceed", proceedMethodAttributes, proceedMethodReturnType);
             proceedMethod.Body.InitLocals = true;
             proceedMethod.Overrides.Add(methodBindingProceedMethodRef);
 
-            var methodContextTypeRef = ModuleDefinition.ImportReference(typeof(MethodContext));
+            var methodContextType = GetMethodContextType(async);
+            var methodContextTypeRef = ModuleDefinition.ImportReference(methodContextType);
             var methodContextParam = new ParameterDefinition(methodContextTypeRef);
             proceedMethod.Parameters.Add(methodContextParam);
 
@@ -262,7 +288,7 @@ namespace CodeLoom.Fody
                 var instanceVar = new VariableDefinition(typeDefinitionRef);
                 proceedMethod.Body.Variables.Add(instanceVar);
 
-                var getInstanceMethod = ModuleDefinition.ImportReference(typeof(MethodContext).GetProperty(nameof(MethodContext.Instance)).GetMethod);
+                var getInstanceMethod = ModuleDefinition.ImportReference(methodContextType.GetProperty("Instance").GetMethod);
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
                 ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getInstanceMethod));
 
@@ -279,7 +305,7 @@ namespace CodeLoom.Fody
             var argumentsVar = new VariableDefinition(argumentsTypeRef);
             proceedMethod.Body.Variables.Add(argumentsVar);
 
-            var getArgumentsMethod = ModuleDefinition.ImportReference(typeof(MethodContext).GetProperty(nameof(MethodContext.Arguments)).GetMethod);
+            var getArgumentsMethod = ModuleDefinition.ImportReference(methodContextType.GetProperty("Arguments").GetMethod);
             ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
             ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getArgumentsMethod));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, argumentsVar));
@@ -331,22 +357,78 @@ namespace CodeLoom.Fody
             if (!clonedMethodRef.ReturnType.SameTypeAs(ModuleWeaver.TypeSystem.VoidReference))
             {
                 // stores the originalMethod return value into a local variable
-                var returnType = clonedMethodRef.ReturnType;
-                if (returnType.IsGenericParameter) returnType = availableGenericParameters.Last(p => p.Name == returnType.Name);
-
+                var returnType = clonedMethodRef.ReturnType.MakeTypeReference(availableGenericParameters);
                 var returnValueVar = new VariableDefinition(returnType);
                 proceedMethod.Body.Variables.Add(returnValueVar);
                 ilProcessor.Append(Instruction.Create(OpCodes.Stloc, returnValueVar));
 
-                // sets the value from the local variable into the MethodContext.ReturnValue
-                var setReturnValue = ModuleDefinition.ImportReference(typeof(MethodContext).GetMethod(nameof(MethodContext.SetReturnValue), new Type[] { typeof(object) }));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, returnValueVar));
+                if (async)
+                {
+                    if (returnType.IsGenericInstance)
+                    {
+                        // the method is async and return a Task<T>, so get the type of T
+                        var typeOfT = (returnType as GenericInstanceType).GenericArguments[0];
 
-                if (returnValueVar.VariableType.IsValueType || returnValueVar.VariableType.IsGenericParameter)
-                    ilProcessor.Append(Instruction.Create(OpCodes.Box, returnValueVar.VariableType));
+                        // creates an instance of AsyncMethodBinding.Continuation
+                        var continuationType = typeof(AsyncMethodBinding.ProceedContinuation);
+                        var continuationCtor = ModuleDefinition.ImportReference(continuationType.GetConstructors().First());
+                        var continuationTypeRef = ModuleDefinition.ImportReference(continuationType);
+                        var continuationVar = new VariableDefinition(continuationTypeRef);
+                        proceedMethod.Body.Variables.Add(continuationVar);
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Newobj, continuationCtor));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Stloc, continuationVar));
 
-                ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, setReturnValue));
+                        // creates an instance of Action<T> that will be used as the callback for ContinueWith
+                        var continueWithCallbackType = typeof(Action<>);
+                        var continueWithCallbackTypeRef = ModuleDefinition.ImportReference(continueWithCallbackType).MakeGenericInstanceType(returnType);
+                        var continueWithCallbackCtor = ModuleDefinition.ImportReference(continueWithCallbackType.GetConstructors().First()).MakeMethodReference(continueWithCallbackTypeRef, continueWithCallbackTypeRef.GenericParameters.ToArray());
+                        var continueMethodRef = ModuleDefinition.ImportReference(continuationType.GetMethod("Continue")).MakeGenericInstanceMethod(typeOfT);
+                        var continueWithCallbackVar = new VariableDefinition(continueWithCallbackTypeRef);
+                        proceedMethod.Body.Variables.Add(continueWithCallbackVar);
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, continuationVar));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldftn, continueMethodRef));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Newobj, continueWithCallbackCtor));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Stloc, continueWithCallbackVar));
+
+                        // calls the ContinueWith method in the Task<T> returned by the originalMethod call
+                        // this leaves a Task in the stack, that will be used as the return value
+                        var continueWithMethodRef = ModuleDefinition.ImportReference(GetTaskOfTContinueWithMethod()).MakeMethodReference(returnType, returnType.GenericParameters.ToArray());
+                        var getSynchronizationContextMethodRef = ModuleDefinition.ImportReference(typeof(SynchronizationContextHelper).GetMethod("GetSynchronizationContext", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, returnValueVar));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, continueWithCallbackVar));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Call, getSynchronizationContextMethodRef));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, continueWithMethodRef));
+                    }
+                    else
+                    {
+                        // the method is async but returns a Task instead of a Task<T>
+                        // we will load this Task into the stack so that it is used as the return value
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, returnValueVar));
+                    }
+                }
+                else
+                {
+                    // the method is NOT async, so we store the return value of the originalMethod call into the MethodContext.ReturnValue
+                    var setReturnValue = ModuleDefinition.ImportReference(methodContextType.GetMethod("SetReturnValue", new Type[] { typeof(object) }));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, returnValueVar));
+
+                    if (returnValueVar.VariableType.IsValueType || returnValueVar.VariableType.IsGenericParameter)
+                        ilProcessor.Append(Instruction.Create(OpCodes.Box, returnValueVar.VariableType));
+
+                    ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, setReturnValue));
+                }
+            }
+            else
+            {
+                if (async)
+                {
+                    // if the originalMethod is an "async void" method returns a dummy Task that is already completed
+                    // to do this, we load Task.CompletedTask into the stack which will then be used as the return value
+                    var getCompletedTaskMethodRef = ModuleDefinition.ImportReference(typeof(Task).GetProperty(nameof(Task.CompletedTask)).GetMethod);
+                    ilProcessor.Append(Instruction.Create(OpCodes.Call, getCompletedTaskMethodRef));
+                }
             }
 
             // sets the values of the arguments back into the MethodContext, because they can be modified when they're "out" or "ref" parameters
@@ -371,7 +453,7 @@ namespace CodeLoom.Fody
             return proceedMethod;
         }
 
-        private void RewriteOriginalMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod, TypeDefinition methodBindingTypeDef)
+        private void RewriteOriginalMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod, TypeDefinition methodBindingTypeDef, bool async)
         {
             var typeDefintionRef = typeDefinition.MakeTypeReference(typeDefinition.GenericParameters.ToArray());
             var originalMethodRef = originalMethod.MakeMethodReference(typeDefintionRef, originalMethod.GenericParameters.ToArray());
@@ -396,7 +478,7 @@ namespace CodeLoom.Fody
             {
                 foreach (var instruction in baseCallInstructions)
                 {
-                    ilProcessor.Append(instruction); 
+                    ilProcessor.Append(instruction);
                 }
             }
 
@@ -420,7 +502,7 @@ namespace CodeLoom.Fody
                     ilProcessor.Append(Instruction.Create(OpCodes.Dup));
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldarg, parameter));
-                    
+
                     if (parameter.ParameterType.IsByReference)
                     {
                         if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
@@ -460,8 +542,9 @@ namespace CodeLoom.Fody
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, methodBaseVar));
 
             // creates the MethodContext instance
-            var contextTypeRef = ModuleDefinition.ImportReference(typeof(MethodContext));
-            var contextCtor = ModuleDefinition.ImportReference(typeof(MethodContext).GetConstructors().First());
+            var methodContextType = GetMethodContextType(async);
+            var contextTypeRef = ModuleDefinition.ImportReference(methodContextType);
+            var contextCtor = ModuleDefinition.ImportReference(methodContextType.GetConstructors().First());
             var contextVar = new VariableDefinition(contextTypeRef);
             originalMethod.Body.Variables.Add(contextVar);
             if (originalMethod.HasThis) ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_0));
@@ -472,13 +555,22 @@ namespace CodeLoom.Fody
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, contextVar));
 
             // invoke the aspects
+            var methodBindingType = GetMethodBindingType(async);
             var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(availableGenericParameters);
             var methodBindingInstanceFieldDef = methodBindingTypeDef.Fields.First(f => f.IsStatic && f.Name == "INSTANCE");
             var methodBindingInstanceFieldRef = methodBindingInstanceFieldDef.MakeFieldReference(methodBindingTypeRef);
-            var methodBindingRunMethodRef = ModuleDefinition.ImportReference(typeof(MethodBinding).GetMethod(nameof(MethodBinding.Run)));
+            var methodBindingRunMethodRef = ModuleDefinition.ImportReference(methodBindingType.GetMethod("Run"));
+            var runTaskTypeRef = ModuleDefinition.ImportReference(typeof(Task));
+            var runTaskVar = new VariableDefinition(runTaskTypeRef);
             ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, methodBindingInstanceFieldRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
             ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, methodBindingRunMethodRef));
+
+            if (async)
+            {
+                originalMethod.Body.Variables.Add(runTaskVar);
+                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, runTaskVar));
+            }
 
             // sets the values of MethodContext.Arguments back into the method arguments, because they can be modified when they're "out" or "ref" parameters
             var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgument), new Type[] { typeof(int) }));
@@ -507,17 +599,124 @@ namespace CodeLoom.Fody
             // prepares the return value
             if (!originalMethod.ReturnType.SameTypeAs(ModuleWeaver.TypeSystem.VoidReference))
             {
-                var getReturnValue = ModuleDefinition.ImportReference(typeof(MethodContext).GetProperty(nameof(MethodContext.ReturnValue)).GetMethod);
-                ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
-                ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getReturnValue));
+                if (async)
+                {
+                    if (originalMethod.ReturnType.IsGenericInstance)
+                    {
+                        // method is async and return Task<T>
+                        var returnType = originalMethod.ReturnType;
+                        var typeOfT = (returnType as GenericInstanceType).GenericArguments[0];
 
-                if (originalMethod.ReturnType.IsValueType || originalMethod.ReturnType.IsGenericParameter)
-                    ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, originalMethod.ReturnType));
+                        // creates an instance of AsyncMethodBinding.Continuation
+                        var continuationType = typeof(AsyncMethodBinding.RunContinuation);
+                        var continuationCtor = ModuleDefinition.ImportReference(continuationType.GetConstructors().First());
+                        var continuationTypeRef = ModuleDefinition.ImportReference(continuationType);
+                        var continuationVar = new VariableDefinition(continuationTypeRef);
+                        originalMethod.Body.Variables.Add(continuationVar);
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Newobj, continuationCtor));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Stloc, continuationVar));
+
+                        // creates an instance of Func<Task, T> that will be used as the callback for ContinueWith
+                        var continueWithCallbackType = typeof(Func<,>);
+                        var taskTypeRef = ModuleDefinition.ImportReference(typeof(Task));
+                        var continueWithCallbackTypeRef = ModuleDefinition.ImportReference(continueWithCallbackType).MakeGenericInstanceType(taskTypeRef, typeOfT);
+                        var continueWithCallbackCtor = ModuleDefinition.ImportReference(continueWithCallbackType.GetConstructors().First()).MakeMethodReference(continueWithCallbackTypeRef, continueWithCallbackTypeRef.GenericParameters.ToArray());
+                        var continueMethodRef = ModuleDefinition.ImportReference(continuationType.GetMethod("Continue")).MakeGenericInstanceMethod(typeOfT);
+                        var continueWithCallbackVar = new VariableDefinition(continueWithCallbackTypeRef);
+                        originalMethod.Body.Variables.Add(continueWithCallbackVar);
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, continuationVar));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldftn, continueMethodRef));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Newobj, continueWithCallbackCtor));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Stloc, continueWithCallbackVar));
+
+                        // calls the ContinueWith method in the Task returned by the Run call
+                        // this leaves a Task<T> in the stack, that will be used as the return value
+                        var continueWithMethodRef = ModuleDefinition.ImportReference(GetTaskContinueWithMethod()).MakeGenericInstanceMethod(typeOfT);
+                        var getSynchronizationContextMethodRef = ModuleDefinition.ImportReference(typeof(SynchronizationContextHelper).GetMethod("GetSynchronizationContext", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, runTaskVar));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, continueWithCallbackVar));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Call, getSynchronizationContextMethodRef));
+                        ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, continueWithMethodRef));
+
+                    }
+                    else
+                    {
+                        // method is async but return Task instead of Task<T>
+                        // we will load the Task returned by the Run call to be used as the return value
+                        ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, runTaskVar));
+                    }
+                }
                 else
-                    ilProcessor.Append(Instruction.Create(OpCodes.Castclass, originalMethod.ReturnType));
+                {
+                    var getReturnValue = ModuleDefinition.ImportReference(methodContextType.GetProperty("ReturnValue").GetMethod);
+                    ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
+                    ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getReturnValue));
+
+                    if (originalMethod.ReturnType.IsValueType || originalMethod.ReturnType.IsGenericParameter)
+                        ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, originalMethod.ReturnType));
+                    else
+                        ilProcessor.Append(Instruction.Create(OpCodes.Castclass, originalMethod.ReturnType));
+                }
             }
 
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
+        }
+
+        private System.Reflection.MethodInfo GetTaskOfTContinueWithMethod()
+        {
+            return typeof(Task<>).GetMethods().First(m =>
+            {
+                if (m.Name != "ContinueWith") return false;
+
+                var parameters = m.GetParameters();
+                if (parameters.Length != 2) return false;
+                if (!parameters[0].ParameterType.IsGenericType) return false;
+                if (parameters[0].ParameterType.GetGenericTypeDefinition() != typeof(Action<>)) return false;
+                if (parameters[1].ParameterType != typeof(TaskScheduler)) return false;
+
+                return true;
+            });
+        }
+
+        private System.Reflection.MethodInfo GetTaskContinueWithMethod()
+        {
+            return typeof(Task).GetMethods().First(m =>
+            {
+                if (m.Name != "ContinueWith") return false;
+
+                var parameters = m.GetParameters();
+                if (parameters.Length != 2) return false;
+                if (!parameters[0].ParameterType.IsGenericType) return false;
+                if (parameters[0].ParameterType.GetGenericTypeDefinition() != typeof(Func<,>)) return false;
+                if (parameters[1].ParameterType != typeof(TaskScheduler)) return false;
+
+                return true;
+            });
+        }
+
+        private static Type GetMethodContextType(bool async)
+        {
+            if (async)
+                return typeof(AsyncMethodContext);
+            else
+                return typeof(MethodContext);
+        }
+
+        private Type GetMethodBindingType(bool async)
+        {
+            if (async)
+                return typeof(AsyncMethodBinding);
+            else
+                return typeof(MethodBinding);
+        }
+
+        private TypeReference GetAspectTypeRef(bool async)
+        {
+            if (async)
+                return ModuleDefinition.ImportReference(typeof(InterceptAsyncMethodAspect));
+            else
+                return ModuleDefinition.ImportReference(typeof(InterceptMethodAspect));
         }
     }
 }
