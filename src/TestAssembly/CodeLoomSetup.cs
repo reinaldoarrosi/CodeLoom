@@ -341,6 +341,14 @@ namespace TestAssembly
             if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReplaceEmptyEnumerableWithANonEmptyEnumerable)))
                 yield return new Aspects.InterceptYieldMethod.ReplaceEmptyEnumerableWithANonEmptyEnumerableAspect();
             #endregion
+
+            #region InterceptConstructorClass
+            if (method.DeclaringType.IsGenericType && method.DeclaringType.GetGenericTypeDefinition() == typeof(InterceptConstructorClass<>) && method.IsConstructor)
+                yield return new Aspects.InterceptConstructor.ChangeArgumentsValuesAspect();
+
+            if (method.DeclaringType.IsGenericType && method.DeclaringType.GetGenericTypeDefinition() == typeof(InterceptConstructorClass<>.InnerClass<>) && method.IsConstructor)
+                yield return new Aspects.InterceptConstructor.ChangeArgumentsValuesAspect();
+            #endregion
         }
 
         public override IEnumerable<InterceptAsyncMethodAspect> GetAsyncMethodAspects(MethodBase method)

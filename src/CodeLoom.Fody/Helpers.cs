@@ -231,6 +231,31 @@ namespace CodeLoom.Fody
             }
         }
 
+        public static void CopyDebugInformation(this MethodDefinition clone, MethodDefinition originalMethod)
+        {
+            clone.DebugInformation.Scope = new ScopeDebugInformation(originalMethod.Body.Instructions.First(), originalMethod.Body.Instructions.Last());
+            clone.DebugInformation.Scope.Import = originalMethod.DebugInformation.Scope.Import;
+            clone.DebugInformation.StateMachineKickOffMethod = originalMethod.DebugInformation.StateMachineKickOffMethod;
+
+            foreach (var sequencePoint in originalMethod.DebugInformation.SequencePoints)
+                clone.DebugInformation.SequencePoints.Add(sequencePoint);
+
+            foreach (var customDebugInfo in originalMethod.DebugInformation.CustomDebugInformations)
+                clone.DebugInformation.CustomDebugInformations.Add(customDebugInfo);           
+
+            foreach (var constant in originalMethod.DebugInformation.Scope.Constants)
+                clone.DebugInformation.Scope.Constants.Add(constant);
+
+            foreach (var customDebugInfo in originalMethod.DebugInformation.Scope.CustomDebugInformations)
+                clone.DebugInformation.Scope.CustomDebugInformations.Add(customDebugInfo);
+
+            foreach (var scope in originalMethod.DebugInformation.Scope.Scopes)
+                clone.DebugInformation.Scope.Scopes.Add(scope);
+
+            foreach (var variable in originalMethod.DebugInformation.Scope.Variables)
+                clone.DebugInformation.Scope.Variables.Add(variable);
+        }
+
         public static bool IsAsyncMethod(this MethodDefinition method)
         {
             var asyncStateMachineAttribute = method.CustomAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == typeof(AsyncStateMachineAttribute).FullName);

@@ -50,7 +50,7 @@ namespace CodeLoom.Fody
 
             foreach (var originalMethod in methods)
             {
-                if (originalMethod.IsGetter || originalMethod.IsSetter || originalMethod.IsConstructor)
+                if (originalMethod.IsGetter || originalMethod.IsSetter)
                     continue;
 
                 var method = originalMethod.TryGetMethodBase();
@@ -142,14 +142,7 @@ namespace CodeLoom.Fody
                 clone.Body.ExceptionHandlers.Add(exceptionHandler);
 
             clone.CopyGenericParameters(originalMethod.GenericParameters);
-
-            if (originalMethod.DebugInformation.HasSequencePoints)
-            {
-                foreach (var sequencePoint in originalMethod.DebugInformation.SequencePoints)
-                    clone.DebugInformation.SequencePoints.Add(sequencePoint);
-
-                clone.DebugInformation.Scope = new ScopeDebugInformation(originalMethod.Body.Instructions.First(), originalMethod.Body.Instructions.Last());
-            }
+            clone.CopyDebugInformation(originalMethod);
 
             var ilProcessor = clone.Body.GetILProcessor();
             var instructions = originalMethod.Body.Instructions.AsEnumerable();
@@ -475,11 +468,18 @@ namespace CodeLoom.Fody
             var ilProcessor = originalMethod.Body.GetILProcessor();
             originalMethod.Body.Instructions.Clear();
             originalMethod.Body.Variables.Clear();
+            originalMethod.DebugInformation.CustomDebugInformations.Clear();
+            originalMethod.DebugInformation.SequencePoints.Clear();
+            originalMethod.DebugInformation.Scope = null;
             originalMethod.Body.InitLocals = true;
 
             // removes the AsyncStateMachineAttribute from the original method because, after it is rewritten, it no longer is async
             var asyncStateMachineAttribute = originalMethod.CustomAttributes.FirstOrDefault(a => a.AttributeType.FullName == typeof(AsyncStateMachineAttribute).FullName);
             if (asyncStateMachineAttribute != null) originalMethod.CustomAttributes.Remove(asyncStateMachineAttribute);
+
+            // removes the IteratorStateMachineAttribute from the original method because, after it is rewritten, it no longer an iterator
+            var iteratorStateMachineAttribute = originalMethod.CustomAttributes.FirstOrDefault(a => a.AttributeType.FullName == typeof(IteratorStateMachineAttribute).FullName);
+            if (iteratorStateMachineAttribute != null) originalMethod.CustomAttributes.Remove(iteratorStateMachineAttribute);
 
             // if baseCallInstructions is different from null, adds these instructions to the start of the method
             if (baseCallInstructions != null)

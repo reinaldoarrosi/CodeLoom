@@ -36,6 +36,7 @@ namespace CodeLoom.Fody
 
                 foreach (var type in ModuleDefinition.Assembly.MainModule.Types)
                 {
+                    var a = type.FullName;
                     WeaveType(type);
                 }
             }

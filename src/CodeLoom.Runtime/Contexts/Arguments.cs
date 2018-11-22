@@ -18,6 +18,11 @@ namespace CodeLoom.Contexts
             _values = values;
         }
 
+        public object this[int index] { get { return GetArgument(index); } }
+
+        public int Count { get { return _values.Length; } }
+
+
         public object GetArgument(int index)
         {
             return _values[index];
