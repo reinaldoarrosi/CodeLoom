@@ -408,10 +408,22 @@ namespace CodeLoom.Fody
             {
                 var genericParameter = typeReference as GenericParameter;
 
-                if (!string.IsNullOrWhiteSpace(genericParameter.DeclaringMethod?.DeclaringType?.Namespace))
-                    sb.AppendFormat("{0}.", genericParameter.DeclaringMethod.DeclaringType.Namespace);
-                else if (!string.IsNullOrWhiteSpace(genericParameter.DeclaringType?.Namespace))
-                    sb.AppendFormat("{0}.", genericParameter.DeclaringType.Namespace);
+                if (genericParameter.DeclaringMethod?.DeclaringType != null)
+                {
+                    var declaringType = genericParameter.DeclaringMethod?.DeclaringType;
+                    while (declaringType != null && declaringType.IsNested) declaringType = declaringType.DeclaringType;
+
+                    if (!string.IsNullOrWhiteSpace(declaringType?.Namespace))
+                        sb.AppendFormat("{0}.", declaringType.Namespace);
+                }
+                else if (genericParameter.DeclaringType != null)
+                {
+                    var declaringType = genericParameter.DeclaringType;
+                    while (declaringType != null && declaringType.IsNested) declaringType = declaringType.DeclaringType;
+
+                    if (!string.IsNullOrWhiteSpace(declaringType?.Namespace))
+                        sb.AppendFormat("{0}.", declaringType.Namespace);
+                }
             }
             else if (!string.IsNullOrWhiteSpace(typeReference.Namespace))
             {

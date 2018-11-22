@@ -9,6 +9,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Mono.Cecil.Rocks;
+using CodeLoom.Helpers;
 
 namespace CodeLoom.Fody
 {
@@ -127,6 +128,9 @@ namespace CodeLoom.Fody
 
             var compilerGeneratedAttrCtor = ModuleDefinition.ImportReference(typeof(CompilerGeneratedAttribute).GetConstructors().First());
             clone.CustomAttributes.Add(new CustomAttribute(compilerGeneratedAttrCtor));
+
+            foreach (var attr in originalMethod.CustomAttributes)
+                clone.CustomAttributes.Add(attr);
 
             foreach (var parameter in originalMethod.Parameters)
                 clone.Parameters.Add(parameter);
@@ -472,6 +476,10 @@ namespace CodeLoom.Fody
             originalMethod.Body.Instructions.Clear();
             originalMethod.Body.Variables.Clear();
             originalMethod.Body.InitLocals = true;
+
+            // removes the AsyncStateMachineAttribute from the original method because, after it is rewritten, it no longer is async
+            var asyncStateMachineAttribute = originalMethod.CustomAttributes.FirstOrDefault(a => a.AttributeType.FullName == typeof(AsyncStateMachineAttribute).FullName);
+            if (asyncStateMachineAttribute != null) originalMethod.CustomAttributes.Remove(asyncStateMachineAttribute);
 
             // if baseCallInstructions is different from null, adds these instructions to the start of the method
             if (baseCallInstructions != null)

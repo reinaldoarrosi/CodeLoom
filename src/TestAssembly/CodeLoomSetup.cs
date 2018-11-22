@@ -315,6 +315,32 @@ namespace TestAssembly
                 yield return new Aspects.InterceptGenericMethodWithConstraints.GenericMethodsWithRepeatedGenericParameter.GenericWithRepeatedGenericParameterReturnInterceptedOutParametersAspect();
             #endregion
             #endregion
+
+            #region InterceptYieldMethodsClass
+            if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReturnOriginalIntEnumerable)))
+                yield return new Aspects.InterceptYieldMethod.ReturnOriginalIntEnumerableAspect();
+
+            if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReturnOriginalSimpleClassEnumerable)))
+                yield return new Aspects.InterceptYieldMethod.ReturnOriginalSimpleClassEnumerableAspect();
+
+            if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReturnOriginalTEnumerable)))
+                yield return new Aspects.InterceptYieldMethod.ReturnOriginalTEnumerableAspect();
+
+            if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReturnInterceptedIntEnumerable)))
+                yield return new Aspects.InterceptYieldMethod.ReturnInterceptedIntEnumerableAspect();
+
+            if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReturnInterceptedSimpleClassEnumerable)))
+                yield return new Aspects.InterceptYieldMethod.ReturnInterceptedSimpleClassEnumerableAspect();
+
+            if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReturnInterceptedTEnumerable)))
+                yield return new Aspects.InterceptYieldMethod.ReturnInterceptedTEnumerableAspect();
+
+            if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReturnEmptyEnumerable)))
+                yield return new Aspects.InterceptYieldMethod.ReturnEmptyEnumerableAspect();
+
+            if (method == typeof(InterceptYieldMethodsClass).GetMethod(nameof(InterceptYieldMethodsClass.ReplaceEmptyEnumerableWithANonEmptyEnumerable)))
+                yield return new Aspects.InterceptYieldMethod.ReplaceEmptyEnumerableWithANonEmptyEnumerableAspect();
+            #endregion
         }
 
         public override IEnumerable<InterceptAsyncMethodAspect> GetAsyncMethodAspects(MethodBase method)
