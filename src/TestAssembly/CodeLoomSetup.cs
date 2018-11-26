@@ -8,6 +8,7 @@ using CodeLoom.Aspects;
 using CodeLoom.Bindings;
 using CodeLoom.Contexts;
 using TestAssembly.ClassesToWeave;
+using TestAssemblyReference;
 
 [assembly:CodeLoom.CodeLoomSetup(typeof(TestAssembly.CodeLoomSetup))]
 
@@ -349,6 +350,38 @@ namespace TestAssembly
             if (method.DeclaringType.IsGenericType && method.DeclaringType.GetGenericTypeDefinition() == typeof(InterceptConstructorClass<>.InnerClass<>) && method.IsConstructor)
                 yield return new Aspects.InterceptConstructor.ChangeArgumentsValuesAspect();
             #endregion
+
+            #region InterceptStaticMethodsClass
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnOriginalIntValue)))
+                yield return new Aspects.InterceptStaticMethod.ReturnOriginalIntValueAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnOriginalSimpleClassValue)))
+                yield return new Aspects.InterceptStaticMethod.ReturnOriginalSimpleClassValueAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnOriginalTValue)))
+                yield return new Aspects.InterceptStaticMethod.ReturnOriginalTValueAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnOriginalT2Value)))
+                yield return new Aspects.InterceptStaticMethod.ReturnOriginalT2ValueAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnOriginalTYieldEnumerable)))
+                yield return new Aspects.InterceptStaticMethod.ReturnOriginalTYieldEnumerableAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnInterceptedIntValue)))
+                yield return new Aspects.InterceptStaticMethod.ReturnInterceptedIntValueAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnInterceptedSimpleClassValue)))
+                yield return new Aspects.InterceptStaticMethod.ReturnInterceptedSimpleClassValueAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnInterceptedTValue)))
+                yield return new Aspects.InterceptStaticMethod.ReturnInterceptedTValueAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnInterceptedT2Value)))
+                yield return new Aspects.InterceptStaticMethod.ReturnInterceptedT2ValueAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnInterceptedTYieldEnumerable)))
+                yield return new Aspects.InterceptStaticMethod.ReturnInterceptedTYieldEnumerableAspect();
+            #endregion
         }
 
         public override IEnumerable<IInterceptAsyncMethodAspect> GetAsyncMethodAspects(MethodBase method)
@@ -401,6 +434,14 @@ namespace TestAssembly
 
             if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.InterceptAsyncMethodThatReturnsVoid)))
                 yield return new Aspects.InterceptAsyncMethod.InterceptAsyncMethodThatReturnsVoidAspect();
+            #endregion
+
+            #region InterceptStaticMethodsClass
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnOriginalT2Async)))
+                yield return new Aspects.InterceptStaticMethod.ReturnOriginalT2AsyncAspect();
+
+            if (method == typeof(InterceptStaticMethodsClass<>).GetMethod(nameof(InterceptStaticMethodsClass<SimpleClass>.ReturnInterceptedT2Async)))
+                yield return new Aspects.InterceptStaticMethod.ReturnInterceptedT2AsyncAspect();
             #endregion
         }
     }
