@@ -10,9 +10,9 @@ using TestAssemblyReference;
 
 namespace TestAssembly.Aspects.InterceptGenericMethod.GenericMethods
 {
-    public class GenericReturnInterceptedOutParametersAspect : InterceptMethodAspect
+    public class GenericReturnInterceptedOutParametersAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             context.Proceed();
 

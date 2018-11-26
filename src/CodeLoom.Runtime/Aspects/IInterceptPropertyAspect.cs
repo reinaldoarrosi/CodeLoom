@@ -7,8 +7,10 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Aspects
 {
-    public abstract class InterceptMethodAspect
+    public interface IInterceptPropertyAspect
     {
-        public abstract void OnMethodInvoked(MethodContext context);
+        void OnGet(PropertyContext context);
+
+        void OnSet(PropertyContext context);
     }
 }

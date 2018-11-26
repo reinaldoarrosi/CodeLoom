@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptGenericMethod.SimpleMethods
 {
-    public class ReturnInterceptedValueFromFirstParameterAspect : InterceptMethodAspect
+    public class ReturnInterceptedValueFromFirstParameterAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             context.Arguments.SetArgument(0, 2);
             context.Proceed();

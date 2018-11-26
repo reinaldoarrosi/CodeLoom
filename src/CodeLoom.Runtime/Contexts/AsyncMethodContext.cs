@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Contexts
 {
+    [DebuggerStepThrough]
     public class AsyncMethodContext
     {
         public AsyncMethodContext(object instance, MethodBase method, Arguments arguments)

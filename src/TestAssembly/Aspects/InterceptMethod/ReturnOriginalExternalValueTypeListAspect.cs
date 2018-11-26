@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptMethod
 {
-    public class ReturnOriginalExternalValueTypeListAspect : InterceptMethodAspect
+    public class ReturnOriginalExternalValueTypeListAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             context.Proceed();
         }

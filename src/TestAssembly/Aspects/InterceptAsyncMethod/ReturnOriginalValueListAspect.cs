@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptAsyncMethod
 {
-    public class ReturnOriginalValueListAspect : InterceptAsyncMethodAspect
+    public class ReturnOriginalValueListAspect : IInterceptAsyncMethodAspect
     {
-        public async override Task OnMethodInvoked(AsyncMethodContext context)
+        public async Task OnMethodInvoked(AsyncMethodContext context)
         {
             await context.Proceed();
         }

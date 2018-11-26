@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptMethod
 {
-    public class ChangeSumToSubtractAspect : InterceptMethodAspect
+    public class ChangeSumToSubtractAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             var a = (int)context.Arguments.GetArgument(0);
             var b = (int)context.Arguments.GetArgument(1);

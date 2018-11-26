@@ -10,14 +10,15 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Mono.Cecil.Rocks;
 using CodeLoom.Helpers;
+using System.Diagnostics;
 
 namespace CodeLoom.Fody
 {
-    class InterceptMethodAspectsWeaver
+    internal class InterceptMethodAspectsWeaver
     {
         internal ModuleWeaver ModuleWeaver;
 
-        public InterceptMethodAspectsWeaver(ModuleWeaver moduleWeaver)
+        internal InterceptMethodAspectsWeaver(ModuleWeaver moduleWeaver)
         {
             ModuleWeaver = moduleWeaver;
             WeavedMethods = new Dictionary<System.Reflection.MethodBase, bool>();
@@ -26,7 +27,7 @@ namespace CodeLoom.Fody
         internal ModuleDefinition ModuleDefinition { get { return ModuleWeaver.ModuleDefinition; } }
         internal Dictionary<System.Reflection.MethodBase, bool> WeavedMethods { get; set; }
 
-        public void Weave(TypeDefinition typeDefinition)
+        internal void Weave(TypeDefinition typeDefinition)
         {
             var type = typeDefinition.TryGetSystemType();
             if (type == null)
@@ -50,6 +51,7 @@ namespace CodeLoom.Fody
 
             foreach (var originalMethod in methods)
             {
+                // do not weave property getters/setters because this is done by the IntercetPropertyAspectsWeaver
                 if (originalMethod.IsGetter || originalMethod.IsSetter)
                     continue;
 
@@ -68,11 +70,15 @@ namespace CodeLoom.Fody
 
                 if (WeavedMethods.ContainsKey(method))
                 {
+                    // if the method we're trying to weave was already weaved we'll skip weaving it
+                    // all aspects are applied the first time the method is weaved, there's no need to weave it more than once
                     continue;
                 }
 
                 if (method.IsAsyncMethod())
                 {
+                    // if the method is async (uses the async keyword) we use a different way of getting the aspects of these methods
+                    // this is done because aspects of async methods must implement IInterceptAsyncMethodAspect instead of IInterceptMethodAspect
                     var aspects = ModuleWeaver.Setup.GetAsyncMethodAspects(method).ToArray();
                     if (aspects.Length <= 0)
                     {
@@ -80,16 +86,21 @@ namespace CodeLoom.Fody
                         continue;
                     }
 
+                    // clone the original method because we're going to rewrite it
                     var clonedMethod = CloneMethod(typeDefinition, originalMethod, true);
                     typeDefinition.Methods.Add(clonedMethod);
 
+                    // creates a class that inherits from AsyncMethodBinding
+                    // this class is used to invoke the aspects in a way that works with generic methods
                     var methodBindingType = CreateMethodBinding(typeDefinition, originalMethod, clonedMethod, aspects, true);
                     typeDefinition.NestedTypes.Add(methodBindingType);
 
+                    // rewrites the original method so that it calls AsyncMethodBinding.Run
                     RewriteOriginalMethod(typeDefinition, originalMethod, methodBindingType, true);
                 }
                 else
                 {
+                    // if the method is NOT async get the aspects that implement IInterceptMethodAspect
                     var aspects = ModuleWeaver.Setup.GetMethodAspects(method).ToArray();
                     if (aspects.Length <= 0)
                     {
@@ -97,27 +108,34 @@ namespace CodeLoom.Fody
                         continue;
                     }
 
+                    // clone the original method because we're going to rewrite it
                     var clonedMethod = CloneMethod(typeDefinition, originalMethod, false);
                     typeDefinition.Methods.Add(clonedMethod);
 
+                    // creates a class that inherits from MethodBinding
+                    // this class is used to invoke the aspects in a way that works with generic methods
                     var methodBindingType = CreateMethodBinding(typeDefinition, originalMethod, clonedMethod, aspects, false);
                     typeDefinition.NestedTypes.Add(methodBindingType);
 
+                    // rewrites the original method so that it calls MethodBinding.Run
                     RewriteOriginalMethod(typeDefinition, originalMethod, methodBindingType, false);
                 }
 
+                // mark this method so that it won't be weaved again
                 WeavedMethods.Add(method, true);
             }
         }
 
         private MethodDefinition CloneMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod, bool async)
         {
+            // prepares the attributes of the cloned method
             var attributes = originalMethod.Attributes;
             attributes &= ~MethodAttributes.Public;
             attributes &= ~MethodAttributes.SpecialName;
             attributes &= ~MethodAttributes.RTSpecialName;
             attributes |= MethodAttributes.Private;
 
+            // creates a new MethodDefinition that will represent out cloned method
             var methodName = Helpers.GetUniqueMethodName(typeDefinition, $"{originalMethod.Name}_original");
             var clone = new MethodDefinition(methodName, attributes, originalMethod.ReturnType);
             clone.Body.InitLocals = true;
@@ -126,22 +144,30 @@ namespace CodeLoom.Fody
             clone.ExplicitThis = originalMethod.ExplicitThis;
             clone.CallingConvention = originalMethod.CallingConvention;
 
+            // adds the CompilerGeneratedAttribute we're creating a new method
             var compilerGeneratedAttrCtor = ModuleDefinition.ImportReference(typeof(CompilerGeneratedAttribute).GetConstructors().First());
             clone.CustomAttributes.Add(new CustomAttribute(compilerGeneratedAttrCtor));
 
+            // copies attributes of the original method
             foreach (var attr in originalMethod.CustomAttributes)
                 clone.CustomAttributes.Add(attr);
 
+            // copies parameters of the original method
             foreach (var parameter in originalMethod.Parameters)
                 clone.Parameters.Add(parameter);
 
+            // copies variables of the original method
             foreach (var variable in originalMethod.Body.Variables)
                 clone.Body.Variables.Add(variable);
 
+            // copies try/catch/finally blocks of the original method
             foreach (var exceptionHandler in originalMethod.Body.ExceptionHandlers)
                 clone.Body.ExceptionHandlers.Add(exceptionHandler);
 
+            // copies generic parameters from the original method
             clone.CopyGenericParameters(originalMethod.GenericParameters);
+
+            // copies debug symbols from the original method
             clone.CopyDebugInformation(originalMethod);
 
             var ilProcessor = clone.Body.GetILProcessor();
@@ -154,6 +180,7 @@ namespace CodeLoom.Fody
                 instructions = instructions.SkipWhile(i => i.OpCode != OpCodes.Call).Skip(1);
             }
 
+            // copies all the instructions of the original method
             foreach (var instruction in instructions)
                 ilProcessor.Append(instruction);
 
@@ -162,17 +189,22 @@ namespace CodeLoom.Fody
 
         private TypeDefinition CreateMethodBinding(TypeDefinition typeDefinition, MethodDefinition originalMethod, MethodDefinition clonedMethod, object[] aspects, bool async)
         {
+            // creates the class that inherits from MethodBinding/AsyncMethodBinding
             var methodBindingTypeDef = CreateMethodBindingTypeDef(typeDefinition, originalMethod, async);
 
+            // creates the static INSTANCE field and adds it to our class
             var instanceField = CreateMethodBindingInstanceField(methodBindingTypeDef, async);
             methodBindingTypeDef.Fields.Add(instanceField);
 
+            // creates the constructor and adds it to our class
             var ctor = CreateMethodBindingCtor(methodBindingTypeDef, async);
             methodBindingTypeDef.Methods.Add(ctor);
 
+            // creates the static constructor and adds it to our class 
             var staticCtor = CreateMethodBindingStaticCtor(methodBindingTypeDef, instanceField, ctor, aspects, async);
             methodBindingTypeDef.Methods.Add(staticCtor);
 
+            // creates the Proceed method that overrides the abstract method MethodBinding.Proceed/AsyncMethodBinding.Proceed
             var proceedMethod = CreateMethodBindingProceedMethod(typeDefinition, clonedMethod, methodBindingTypeDef, async);
             methodBindingTypeDef.Methods.Add(proceedMethod);
 
@@ -181,12 +213,24 @@ namespace CodeLoom.Fody
 
         private TypeDefinition CreateMethodBindingTypeDef(TypeDefinition typeDefinition, MethodDefinition originalMethod, bool async)
         {
+            // creates new TypeDefinition that represents a class that inherits from MethodBinding/AsyncMethodBinding
             var methodBindingTypeRef = ModuleDefinition.ImportReference(GetMethodBindingType(async));
             var typeAttributes = TypeAttributes.Sealed | TypeAttributes.NestedPrivate;
             var typeName = Helpers.GetUniqueBindingName(typeDefinition, originalMethod.Name);
             var typeDef = new TypeDefinition(typeDefinition.Namespace, typeName, typeAttributes, methodBindingTypeRef);
 
+            // adds the CompilerGeneratedAttribute to the type that we are creating
+            var compilerGeneratedAttrCtor = ModuleDefinition.ImportReference(typeof(CompilerGeneratedAttribute).GetConstructors().First());
+            typeDef.CustomAttributes.Add(new CustomAttribute(compilerGeneratedAttrCtor));
+
+            // adds the DebuggerStepThroughAttribute so that the debugger skips the generated MethodBinding class
+            var debuggerStepThroughAttribute = ModuleDefinition.ImportReference(typeof(DebuggerStepThroughAttribute).GetConstructors().First());
+            typeDef.CustomAttributes.Add(new CustomAttribute(debuggerStepThroughAttribute));
+
+            // this new type will be nested inside the declaring type of the original method, so we need to copy its generic parameters
             typeDef.CopyGenericParameters(typeDefinition.GenericParameters);
+
+            // we also copy the generic parameters of the original method itself, so that we have access to them inside our newly created type
             typeDef.CopyGenericParameters(originalMethod.GenericParameters);
 
             return typeDef;
@@ -194,6 +238,9 @@ namespace CodeLoom.Fody
 
         private FieldDefinition CreateMethodBindingInstanceField(TypeDefinition methodBindingTypeDef, bool async)
         {
+            // creates a static field that will hold an instance of our "method binding"
+            // this effectively representes the singleton pattern, meaning that we will only have one single instance of a particular binding
+            // which gives us better performance when invoking the method
             var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(methodBindingTypeDef.GenericParameters.ToArray());
             var instanceFieldAttributes = FieldAttributes.Static | FieldAttributes.Public;
             var instanceField = new FieldDefinition("INSTANCE", instanceFieldAttributes, methodBindingTypeRef);
@@ -203,6 +250,9 @@ namespace CodeLoom.Fody
 
         private MethodDefinition CreateMethodBindingCtor(TypeDefinition methodBindingTypeDef, bool async)
         {
+            // create a private constructor for our "method binding"
+            // this constructor receives an array of IInterceptMethodAspect/IIterceptAsyncMethodAspect 
+            // which corresponds to all the aspects that were applied to the original method
             var methodBindingType = GetMethodBindingType(async);
             var methodBindingCtorRef = ModuleDefinition.ImportReference(methodBindingType.GetConstructors().First());
             var ctorAttributes = MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName;
@@ -211,6 +261,7 @@ namespace CodeLoom.Fody
             TypeReference interceptMethodAspectTypeRef = GetAspectTypeRef(async);
             ctor.Parameters.Add(new ParameterDefinition(new ArrayType(interceptMethodAspectTypeRef)));
 
+            // creates the MSIL instructions that calls the base constructor from MethodBinding/AsyncMethodBinding
             var ilProcessor = ctor.Body.GetILProcessor();
             ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_0));
             ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
@@ -222,24 +273,30 @@ namespace CodeLoom.Fody
 
         private MethodDefinition CreateMethodBindingStaticCtor(TypeDefinition methodBindingTypeDef, FieldDefinition instanceField, MethodDefinition ctor, object[] aspects, bool async)
         {
+            // get type and method reference that we'll need later
             var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(methodBindingTypeDef.GenericParameters.ToArray());
             var ctorRef = ctor.MakeMethodReference(methodBindingTypeRef, ctor.GenericParameters.ToArray());
             var instanceFieldRef = instanceField.MakeFieldReference(methodBindingTypeRef);
 
+            // creates a static constructor on our "method binding"
+            // this will be used to instantiate our singleton instance
             var staticCtorAttributes = MethodAttributes.Private | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName | MethodAttributes.Static;
             var staticCtor = new MethodDefinition(".cctor", staticCtorAttributes, ModuleWeaver.TypeSystem.VoidReference);
             staticCtor.Body.InitLocals = true;
 
+            // create a local variable that will hold the IInterceptMethodAspect/IInterceptAsyncMethodAspect array
+            // this array will be used to instantiate the "method binding" instance
             var baseAspectTypeRef = GetAspectTypeRef(async);
             var aspectsArrayVar = new VariableDefinition(new ArrayType(baseAspectTypeRef));
             staticCtor.Body.Variables.Add(aspectsArrayVar);
 
+            // create a new array with length equals to the number of aspects associated with the original method
             var ilProcessor = staticCtor.Body.GetILProcessor();
-
             ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, aspects.Length));
             ilProcessor.Append(Instruction.Create(OpCodes.Newarr, baseAspectTypeRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, aspectsArrayVar));
 
+            // for each associated aspect, invokes the default constructor of it and stores it into the previously created array
             for (int i = 0; i < aspects.Length; i++)
             {
                 var aspect = aspects[i];
@@ -251,6 +308,8 @@ namespace CodeLoom.Fody
                 ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
             }
 
+            // invokes the constructor of the "method binding" passing the array of aspects as argument
+            // stores the instance into the static field created when we called CreateMethodBindingInstanceField earlier
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, aspectsArrayVar));
             ilProcessor.Append(Instruction.Create(OpCodes.Newobj, ctorRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Stsfld, instanceFieldRef));
@@ -261,18 +320,23 @@ namespace CodeLoom.Fody
 
         private MethodDefinition CreateMethodBindingProceedMethod(TypeDefinition typeDefinition, MethodDefinition clonedMethod, TypeDefinition methodBindingTypeDef, bool async)
         {
+            // get type ad method references that we'll use later
             var availableGenericParameters = methodBindingTypeDef.GenericParameters.ToArray();
             var typeDefinitionRef = typeDefinition.MakeTypeReference(typeDefinition.GenericParameters.ToArray());
             var clonedMethodRef = clonedMethod.MakeMethodReference(typeDefinitionRef, availableGenericParameters);
             var bindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
             var methodBindingType = GetMethodBindingType(async);
             var methodBindingProceedMethodRef = ModuleDefinition.ImportReference(methodBindingType.GetMethod("Proceed", bindingFlags));
-            var proceedMethodAttributes = MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual;
             var proceedMethodReturnType = async ? ModuleDefinition.ImportReference(typeof(Task)) : ModuleWeaver.TypeSystem.VoidReference;
+
+            // creates a new MethodDefinition representing the "Proceed" method in our "method binding"
+            // the "Proceed" method is responsible for invoking the original code of the method that we're intercepting
+            var proceedMethodAttributes = MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual;
             var proceedMethod = new MethodDefinition("Proceed", proceedMethodAttributes, proceedMethodReturnType);
             proceedMethod.Body.InitLocals = true;
             proceedMethod.Overrides.Add(methodBindingProceedMethodRef);
 
+            // the "Proceed" method receives a parameter of type MethodContext/AsyncMethodContext
             var methodContextType = GetMethodContextType(async);
             var methodContextTypeRef = ModuleDefinition.ImportReference(methodContextType);
             var methodContextParam = new ParameterDefinition(methodContextTypeRef);
@@ -282,6 +346,8 @@ namespace CodeLoom.Fody
 
             if (clonedMethodRef.HasThis)
             {
+                // if the method we're intercepting is an instance method (not static) we'll get the target instance 
+                // from MethodContext.Instance and store it into a local variable so that we can use it later
                 var instanceVar = new VariableDefinition(typeDefinitionRef);
                 proceedMethod.Body.Variables.Add(instanceVar);
 
@@ -289,6 +355,7 @@ namespace CodeLoom.Fody
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
                 ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getInstanceMethod));
 
+                // MethodContext.Instance returns an object, so cast it to the correct type
                 if (typeDefinitionRef.IsValueType)
                     ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, typeDefinitionRef));
                 else
@@ -297,45 +364,51 @@ namespace CodeLoom.Fody
                 ilProcessor.Append(Instruction.Create(OpCodes.Stloc, instanceVar));
             }
 
-            // gets the Argument property from the MethodContext parameter
+            // creates a local variable that will store the MethodContext.Arguments value because it will be used multiple times
             var argumentsTypeRef = ModuleDefinition.ImportReference(typeof(Arguments));
             var argumentsVar = new VariableDefinition(argumentsTypeRef);
             proceedMethod.Body.Variables.Add(argumentsVar);
 
+            // gets the Arguments from MethodContext.Arguments and store it into the previously created local variable 
             var getArgumentsMethod = ModuleDefinition.ImportReference(methodContextType.GetProperty("Arguments").GetMethod);
             ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
             ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getArgumentsMethod));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, argumentsVar));
 
-            // loads the arguments into local variables
+            // loads the value of each parameter into a local variable
             var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgument), new Type[] { typeof(int) }));
             var localParametersVariables = new List<VariableDefinition>();
             foreach (var parameter in clonedMethodRef.Parameters)
             {
+                // creates a local variable to store the value of the parameter
                 var realParameterType = parameter.ParameterType.MakeTypeReference(availableGenericParameters);
                 var parameterVar = new VariableDefinition(realParameterType);
                 localParametersVariables.Add(parameterVar);
                 proceedMethod.Body.Variables.Add(parameterVar);
 
-                if (!parameter.IsOut)
+                if (!parameter.IsOut) // if the parameter is an "out" parameter it does not have a value yet
                 {
+                    // calls Arguments.GetArgument to the value of the parameter
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, argumentsVar));
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, parameter.Index));
                     ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getArgumentValueMethod));
 
+                    // Arguments.GetArgument returns an object, so we need to cast it to the correct type
                     if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
                         ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, realParameterType));
                     else
                         ilProcessor.Append(Instruction.Create(OpCodes.Castclass, realParameterType));
 
+                    // stores the value into a local variable
                     ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterVar));
                 }
             }
 
-            // prepares to call the original method, loading "this" and the local variables into the stack
+            // prepares to call the original method, loading "this" into the stack
             if (clonedMethodRef.HasThis)
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldloc_0));
 
+            // prepares to call the original method, loading all local variables that represents the values of the parameters into the stack
             foreach (var parameter in clonedMethodRef.Parameters)
             {
                 if (parameter.ParameterType.IsByReference)
@@ -344,13 +417,13 @@ namespace CodeLoom.Fody
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, localParametersVariables[parameter.Index]));
             }
 
-            // calls the original method
+            // calls the original method (checking if it is a static method or not)
             if (clonedMethodRef.HasThis)
                 ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, clonedMethodRef));
             else
                 ilProcessor.Append(Instruction.Create(OpCodes.Call, clonedMethodRef));
 
-            // set the MethodContext.ReturnValue with the value returned from the originalMethod
+            // set the MethodContext.ReturnValue with the value returned from the originalMethod call
             if (!clonedMethodRef.ReturnType.SameTypeAs(ModuleWeaver.TypeSystem.VoidReference))
             {
                 // stores the originalMethod return value into a local variable
@@ -411,6 +484,7 @@ namespace CodeLoom.Fody
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, returnValueVar));
 
+                    // MethodContext.ReturnValue is an object, so we may need to box the value
                     if (returnValueVar.VariableType.IsValueType || returnValueVar.VariableType.IsGenericParameter)
                         ilProcessor.Append(Instruction.Create(OpCodes.Box, returnValueVar.VariableType));
 
@@ -452,6 +526,7 @@ namespace CodeLoom.Fody
 
         private void RewriteOriginalMethod(TypeDefinition typeDefinition, MethodDefinition originalMethod, TypeDefinition methodBindingTypeDef, bool async)
         {
+            // get type and method references that we'll need later
             var typeDefintionRef = typeDefinition.MakeTypeReference(typeDefinition.GenericParameters.ToArray());
             var originalMethodRef = originalMethod.MakeMethodReference(typeDefintionRef, originalMethod.GenericParameters.ToArray());
             var availableGenericParameters = typeDefinition.GenericParameters.Concat(originalMethod.GenericParameters).ToArray();
@@ -465,6 +540,7 @@ namespace CodeLoom.Fody
                 baseCallInstructions.Add(originalMethod.Body.Instructions.Skip(baseCallInstructions.Count).First());
             }
 
+            // clear all instructions, variables and debug information from the original method because we're going to rewrite it from scratch
             var ilProcessor = originalMethod.Body.GetILProcessor();
             originalMethod.Body.Instructions.Clear();
             originalMethod.Body.Variables.Clear();
@@ -480,6 +556,14 @@ namespace CodeLoom.Fody
             // removes the IteratorStateMachineAttribute from the original method because, after it is rewritten, it no longer an iterator
             var iteratorStateMachineAttribute = originalMethod.CustomAttributes.FirstOrDefault(a => a.AttributeType.FullName == typeof(IteratorStateMachineAttribute).FullName);
             if (iteratorStateMachineAttribute != null) originalMethod.CustomAttributes.Remove(iteratorStateMachineAttribute);
+
+            // adds the CompilerGeneratedAttribute to the original method since it will be rewritten and will not resemble the user code at all
+            var compilerGeneratedAttrCtor = ModuleDefinition.ImportReference(typeof(CompilerGeneratedAttribute).GetConstructors().First());
+            originalMethod.CustomAttributes.Add(new CustomAttribute(compilerGeneratedAttrCtor));
+
+            // adds the DebuggerStepThroughAttribute so that the debugger skips this method, becaus it no longer represente user's code
+            var debuggerStepThroughAttribute = ModuleDefinition.ImportReference(typeof(DebuggerStepThroughAttribute).GetConstructors().First());
+            originalMethod.CustomAttributes.Add(new CustomAttribute(debuggerStepThroughAttribute));
 
             // if baseCallInstructions is different from null, adds these instructions to the start of the method
             if (baseCallInstructions != null)
@@ -503,6 +587,8 @@ namespace CodeLoom.Fody
                 originalMethod.Body.Variables.Add(parameterValuesArrayVar);
                 ilProcessor.Append(Instruction.Create(OpCodes.Ldc_I4, originalMethod.Parameters.Count));
                 ilProcessor.Append(Instruction.Create(OpCodes.Newarr, ModuleWeaver.TypeSystem.ObjectReference));
+
+                // stores the value of each parameter into the object[] that was created before
                 foreach (var parameter in originalMethod.Parameters)
                 {
                     var realParameterType = parameter.ParameterType.MakeTypeReference(availableGenericParameters);
@@ -513,17 +599,21 @@ namespace CodeLoom.Fody
 
                     if (parameter.ParameterType.IsByReference)
                     {
+                        // if the parameter is by reference we need to load a pointer to the value
                         if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
                             ilProcessor.Append(Instruction.Create(OpCodes.Ldobj, realParameterType));
                         else
                             ilProcessor.Append(Instruction.Create(OpCodes.Ldind_Ref));
                     }
 
+                    // since we're storing the values into an object[], we may need to box these values before storing them
                     if (realParameterType.IsValueType || realParameterType.IsGenericParameter)
                         ilProcessor.Append(Instruction.Create(OpCodes.Box, realParameterType));
 
                     ilProcessor.Append(Instruction.Create(OpCodes.Stelem_Ref));
                 }
+
+                // stores our object[] into the local variable we previously created
                 ilProcessor.Append(Instruction.Create(OpCodes.Stloc, parameterValuesArrayVar));
 
                 // creates the Arguments instance and stores it into the argumentsVar
@@ -562,23 +652,17 @@ namespace CodeLoom.Fody
             ilProcessor.Append(Instruction.Create(OpCodes.Newobj, contextCtor));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, contextVar));
 
-            // invoke the aspects
+            // invoke MethodBinding.Run which will then invoke each of the aspects associated with the method we're intercepting
             var methodBindingType = GetMethodBindingType(async);
             var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(availableGenericParameters);
             var methodBindingInstanceFieldDef = methodBindingTypeDef.Fields.First(f => f.IsStatic && f.Name == "INSTANCE");
             var methodBindingInstanceFieldRef = methodBindingInstanceFieldDef.MakeFieldReference(methodBindingTypeRef);
             var methodBindingRunMethodRef = ModuleDefinition.ImportReference(methodBindingType.GetMethod("Run"));
             var runTaskTypeRef = ModuleDefinition.ImportReference(typeof(Task));
-            var runTaskVar = new VariableDefinition(runTaskTypeRef);
+            
             ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, methodBindingInstanceFieldRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
             ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, methodBindingRunMethodRef));
-
-            if (async)
-            {
-                originalMethod.Body.Variables.Add(runTaskVar);
-                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, runTaskVar));
-            }
 
             // sets the values of MethodContext.Arguments back into the method arguments, because they can be modified when they're "out" or "ref" parameters
             var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgument), new Type[] { typeof(int) }));
@@ -604,6 +688,16 @@ namespace CodeLoom.Fody
                 }
             }
 
+            // if the method is async AsyncMethodBinding.Run returns a Task into the stack
+            // we could just pop the stack but we may need this Task later, so we create
+            // a local variable and store the Task into it
+            var runTaskVar = new VariableDefinition(runTaskTypeRef);
+            if (async)
+            {
+                originalMethod.Body.Variables.Add(runTaskVar);
+                ilProcessor.Append(Instruction.Create(OpCodes.Stloc, runTaskVar));
+            }
+
             // prepares the return value
             if (!originalMethod.ReturnType.SameTypeAs(ModuleWeaver.TypeSystem.VoidReference))
             {
@@ -611,9 +705,8 @@ namespace CodeLoom.Fody
                 {
                     if (originalMethod.ReturnType.IsGenericInstance)
                     {
-                        // method is async and return Task<T>
-                        var returnType = originalMethod.ReturnType;
-                        var typeOfT = (returnType as GenericInstanceType).GenericArguments[0];
+                        // method is async and return Task<T>, so we get the type of T
+                        var typeOfT = (originalMethod.ReturnType as GenericInstanceType).GenericArguments[0];
 
                         // creates an instance of AsyncMethodBinding.Continuation
                         var continuationType = typeof(AsyncMethodBinding.RunContinuation);
@@ -657,17 +750,20 @@ namespace CodeLoom.Fody
                 }
                 else
                 {
+                    // method is not async, so get the return value from MethodContext.ReturnValue and put it into the stack
                     var getReturnValue = ModuleDefinition.ImportReference(methodContextType.GetProperty("ReturnValue").GetMethod);
                     ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
                     ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, getReturnValue));
 
+                    // since MethodContext.ReturnValue is an object, cast it to the correct type
                     if (originalMethod.ReturnType.IsValueType || originalMethod.ReturnType.IsGenericParameter)
                         ilProcessor.Append(Instruction.Create(OpCodes.Unbox_Any, originalMethod.ReturnType));
                     else
                         ilProcessor.Append(Instruction.Create(OpCodes.Castclass, originalMethod.ReturnType));
                 }
             }
-
+            
+            // returns (if the method is NOT void, the return value will already be on the stack)
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
         }
 
@@ -722,9 +818,9 @@ namespace CodeLoom.Fody
         private TypeReference GetAspectTypeRef(bool async)
         {
             if (async)
-                return ModuleDefinition.ImportReference(typeof(InterceptAsyncMethodAspect));
+                return ModuleDefinition.ImportReference(typeof(IInterceptAsyncMethodAspect));
             else
-                return ModuleDefinition.ImportReference(typeof(InterceptMethodAspect));
+                return ModuleDefinition.ImportReference(typeof(IInterceptMethodAspect));
         }
     }
 }

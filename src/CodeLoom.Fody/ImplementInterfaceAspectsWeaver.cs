@@ -11,18 +11,18 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Fody
 {
-    class ImplementInterfaceAspectsWeaver
+    internal class ImplementInterfaceAspectsWeaver
     {
         internal ModuleWeaver ModuleWeaver;
 
-        public ImplementInterfaceAspectsWeaver(ModuleWeaver moduleWeaver)
+        internal ImplementInterfaceAspectsWeaver(ModuleWeaver moduleWeaver)
         {
             ModuleWeaver = moduleWeaver;
         }
 
         internal ModuleDefinition ModuleDefinition { get { return ModuleWeaver.ModuleDefinition; } }
 
-        public void Weave(TypeDefinition typeDefinition)
+        internal void Weave(TypeDefinition typeDefinition)
         {
             var type = typeDefinition.TryGetSystemType();
             if (type == null)

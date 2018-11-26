@@ -2,23 +2,25 @@
 using CodeLoom.Contexts;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace CodeLoom.Bindings
 {
+    [DebuggerStepThrough]
     public abstract class MethodBinding
     {
         private Action<MethodContext> _runAction;
 
-        public MethodBinding(InterceptMethodAspect[] aspects)
+        public MethodBinding(IInterceptMethodAspect[] aspects)
         {
             Aspects = aspects;
             _runAction = CreateRunAction(aspects, 0);
         }
 
-        public InterceptMethodAspect[] Aspects { get; private set; }
+        public IInterceptMethodAspect[] Aspects { get; private set; }
 
         public void Run(MethodContext context)
         {
@@ -27,7 +29,7 @@ namespace CodeLoom.Bindings
 
         internal protected abstract void Proceed(MethodContext context);
 
-        private Action<MethodContext> CreateRunAction(InterceptMethodAspect[] aspects, int index)
+        private Action<MethodContext> CreateRunAction(IInterceptMethodAspect[] aspects, int index)
         {
             return (ctx) =>
             {

@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptGenericMethodWithConstraints.GenericMethodsWithRepeatedGenericParameter
 {
-    public class GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameterAspect : InterceptMethodAspect
+    public class GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameterAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             context.Proceed();
         }

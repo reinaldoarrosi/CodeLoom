@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptAsyncMethod
 {
-    public class InterceptAsyncMethodThatReturnsTaskAspect : InterceptAsyncMethodAspect
+    public class InterceptAsyncMethodThatReturnsTaskAspect : IInterceptAsyncMethodAspect
     {
         public static int COUNTER_BEFORE = 0;
         public static int COUNTER_AFTER = 0;
@@ -20,7 +20,7 @@ namespace TestAssembly.Aspects.InterceptAsyncMethod
             COUNTER_AFTER = 0;
         }
 
-        public async override Task OnMethodInvoked(AsyncMethodContext context)
+        public async Task OnMethodInvoked(AsyncMethodContext context)
         {
             COUNTER_BEFORE++;
             await context.Proceed();

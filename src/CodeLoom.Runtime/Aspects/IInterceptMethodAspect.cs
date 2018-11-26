@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Aspects
 {
-    public abstract class InterceptAsyncMethodAspect
+    public interface IInterceptMethodAspect
     {
-        public abstract Task OnMethodInvoked(AsyncMethodContext context);
+        void OnMethodInvoked(MethodContext context);
     }
 }

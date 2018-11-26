@@ -10,9 +10,9 @@ using TestAssemblyReference;
 
 namespace TestAssembly.Aspects.InterceptMethod
 {
-    public class ReturnInterceptedRefParametersAsStringAspect : InterceptMethodAspect
+    public class ReturnInterceptedRefParametersAsStringAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             context.Arguments.SetArgument(0, 2);
             context.Arguments.SetArgument(1, "ab");

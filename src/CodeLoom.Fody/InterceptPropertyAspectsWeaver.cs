@@ -13,11 +13,11 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Fody
 {
-    class InterceptPropertyAspectsWeaver
+    internal class InterceptPropertyAspectsWeaver
     {  
         internal ModuleWeaver ModuleWeaver;
 
-        public InterceptPropertyAspectsWeaver(ModuleWeaver moduleWeaver)
+        internal InterceptPropertyAspectsWeaver(ModuleWeaver moduleWeaver)
         {
             ModuleWeaver = moduleWeaver;
             WeavedProperties = new Dictionary<System.Reflection.PropertyInfo, bool>();
@@ -26,7 +26,7 @@ namespace CodeLoom.Fody
         internal ModuleDefinition ModuleDefinition { get { return ModuleWeaver.ModuleDefinition; } }
         internal Dictionary<System.Reflection.PropertyInfo, bool> WeavedProperties { get; set; }
 
-        public void Weave(TypeDefinition typeDefinition)
+        internal void Weave(TypeDefinition typeDefinition)
         {
             var type = typeDefinition.TryGetSystemType();
             if (type == null)
@@ -50,7 +50,7 @@ namespace CodeLoom.Fody
 
             foreach (var propertyDefinition in properties)
             {
-                var property = propertyDefinition.GetPropertyInfo();
+                var property = propertyDefinition.TryGetPropertyInfo();
                 if (property == null)
                 {
                     ModuleWeaver.LogInfo($"Property {propertyDefinition.Name} from type {typeDefinition.FullName} will not be weaved because it was not possible to load its corresponding PropertyInfo");

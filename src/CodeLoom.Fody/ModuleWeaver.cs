@@ -1,5 +1,4 @@
 ﻿using CodeLoom.Aspects;
-using CodeLoom.Setup;
 using Fody;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -62,13 +61,13 @@ namespace CodeLoom.Fody
 
             LogInfo($"Weaving type {type.FullName}");
 
-            LogInfo($"Weaving {nameof(InterceptMethodAspect)}");
+            LogInfo($"Weaving {nameof(IInterceptMethodAspect)}");
             InterceptMethodAspectsWeaver.Weave(type);
 
-            LogInfo($"Weaving {nameof(InterceptPropertyAspect)}");
+            LogInfo($"Weaving {nameof(IInterceptPropertyAspect)}");
             InterceptPropertyAspectsWeaver.Weave(type);
 
-            LogInfo($"Weaving {nameof(ImplementInterfaceAspect)}");
+            LogInfo($"Weaving {nameof(IImplementInterfaceAspect)}");
             ImplementInterfaceAspectsWeaver.Weave(type);
         }
 

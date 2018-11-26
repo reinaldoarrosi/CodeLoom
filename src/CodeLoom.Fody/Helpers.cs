@@ -11,37 +11,37 @@ using System.Text;
 
 namespace CodeLoom.Fody
 {
-    public static class Helpers
+    internal static class Helpers
     {
-        public static string GetUniqueFieldName(TypeDefinition typeDefinition, string baseName)
+        internal static string GetUniqueFieldName(TypeDefinition typeDefinition, string baseName)
         {
             var partialName = $"<{baseName}>_field_";
             var index = typeDefinition.Fields.Where(f => f.Name.StartsWith(partialName)).Count();
             return partialName + index;
         }
 
-        public static string GetUniquePropertyName(TypeDefinition typeDefinition, string baseName)
+        internal static string GetUniquePropertyName(TypeDefinition typeDefinition, string baseName)
         {
             var partialName = $"<{baseName}>_prop_";
             var index = typeDefinition.Properties.Where(f => f.Name.StartsWith(partialName)).Count();
             return partialName + index;
         }
 
-        public static string GetUniqueMethodName(TypeDefinition typeDefinition, string baseName)
+        internal static string GetUniqueMethodName(TypeDefinition typeDefinition, string baseName)
         {
             var partialName = $"<{baseName}>_method_";
             var index = typeDefinition.Methods.Where(f => f.Name.StartsWith(partialName)).Count();
             return partialName + index;
         }
 
-        public static string GetUniqueBindingName(TypeDefinition typeDefinition, string baseName)
+        internal static string GetUniqueBindingName(TypeDefinition typeDefinition, string baseName)
         {
             var partialName = $"<{baseName}>Binding";
             var index = typeDefinition.NestedTypes.Where(t => t.Name.StartsWith(partialName)).Count();
             return partialName + index;
         }
 
-        public static void Append(this ILProcessor ilProcessor, IEnumerable<Instruction> instructions)
+        internal static void Append(this ILProcessor ilProcessor, IEnumerable<Instruction> instructions)
         {
             foreach (var instruction in instructions)
             {
@@ -49,7 +49,7 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static void InsertBefore(this ILProcessor ilProcessor, Instruction target, IEnumerable<Instruction> instructions)
+        internal static void InsertBefore(this ILProcessor ilProcessor, Instruction target, IEnumerable<Instruction> instructions)
         {
             foreach (var instruction in instructions)
             {
@@ -57,7 +57,7 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static void InsertAfter(this ILProcessor ilProcessor, Instruction target, IEnumerable<Instruction> instructions)
+        internal static void InsertAfter(this ILProcessor ilProcessor, Instruction target, IEnumerable<Instruction> instructions)
         {
             foreach (var instruction in instructions.Reverse())
             {
@@ -65,7 +65,7 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static TypeReference MakeTypeReference(this TypeReference type, params GenericParameter[] arguments)
+        internal static TypeReference MakeTypeReference(this TypeReference type, params GenericParameter[] arguments)
         {
             if (type.IsDefinition)
             {
@@ -133,7 +133,7 @@ namespace CodeLoom.Fody
             return type;
         }
 
-        public static MethodReference MakeMethodReference(this MethodReference method, TypeReference declaringType, params GenericParameter[] arguments)
+        internal static MethodReference MakeMethodReference(this MethodReference method, TypeReference declaringType, params GenericParameter[] arguments)
         {
             var methodRef = new MethodReference(method.Name, method.ReturnType, declaringType)
             {
@@ -161,12 +161,12 @@ namespace CodeLoom.Fody
             return methodRef;
         }
 
-        public static FieldReference MakeFieldReference(this FieldReference field, TypeReference declaringType)
+        internal static FieldReference MakeFieldReference(this FieldReference field, TypeReference declaringType)
         {
             return new FieldReference(field.Name, field.FieldType, declaringType);
         }
 
-        public static GenericInstanceMethod MakeGenericInstanceMethod(this MethodReference method, params TypeReference[] arguments)
+        internal static GenericInstanceMethod MakeGenericInstanceMethod(this MethodReference method, params TypeReference[] arguments)
         {
             var genericInstanceMethod = new GenericInstanceMethod(method);
 
@@ -178,7 +178,7 @@ namespace CodeLoom.Fody
             return genericInstanceMethod;
         }
 
-        public static void CopyParameters(this MethodReference method, Collection<ParameterDefinition> copySource)
+        internal static void CopyParameters(this MethodReference method, Collection<ParameterDefinition> copySource)
         {
             foreach (var original in copySource)
             {
@@ -193,7 +193,7 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static void CopyGenericParameters(this IGenericParameterProvider target, Collection<GenericParameter> copySource)
+        internal static void CopyGenericParameters(this IGenericParameterProvider target, Collection<GenericParameter> copySource)
         {
             var originalToCloneMap = new Dictionary<GenericParameter, GenericParameter>();
 
@@ -231,7 +231,7 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static void CopyDebugInformation(this MethodDefinition clone, MethodDefinition originalMethod)
+        internal static void CopyDebugInformation(this MethodDefinition clone, MethodDefinition originalMethod)
         {
             clone.DebugInformation.Scope = new ScopeDebugInformation(originalMethod.Body.Instructions.First(), originalMethod.Body.Instructions.Last());
             clone.DebugInformation.Scope.Import = originalMethod.DebugInformation.Scope.Import;
@@ -256,7 +256,7 @@ namespace CodeLoom.Fody
                 clone.DebugInformation.Scope.Variables.Add(variable);
         }
 
-        public static bool IsAsyncMethod(this MethodDefinition method)
+        internal static bool IsAsyncMethod(this MethodDefinition method)
         {
             var asyncStateMachineAttribute = method.CustomAttributes.FirstOrDefault(attr => attr.AttributeType.FullName == typeof(AsyncStateMachineAttribute).FullName);
             if (asyncStateMachineAttribute == null) return false;
@@ -267,7 +267,7 @@ namespace CodeLoom.Fody
             return stateMachineType.CustomAttributes.Any(attr => attr.AttributeType.FullName == typeof(CompilerGeneratedAttribute).FullName);
         }
 
-        public static bool IsAsyncMethod(this MethodBase method)
+        internal static bool IsAsyncMethod(this MethodBase method)
         {
             var asyncStateMachineAttribute = method.CustomAttributes.FirstOrDefault(attr => attr.AttributeType == typeof(AsyncStateMachineAttribute));
             if (asyncStateMachineAttribute == null) return false;
@@ -278,7 +278,7 @@ namespace CodeLoom.Fody
             return stateMachineType.CustomAttributes.Any(attr => attr.AttributeType == typeof(CompilerGeneratedAttribute));
         }
 
-        public static Type GetSystemType(this TypeDefinition typeDefinition)
+        internal static Type GetSystemType(this TypeDefinition typeDefinition)
         {
             var type = TryGetSystemType(typeDefinition);
 
@@ -288,7 +288,7 @@ namespace CodeLoom.Fody
             return type;
         }
 
-        public static Type TryGetSystemType(this TypeDefinition typeDefinition)
+        internal static Type TryGetSystemType(this TypeDefinition typeDefinition)
         {
             var typeName = $"{typeDefinition.GetStandardTypeName()}, {typeDefinition.Module.Assembly.FullName}";
             var type = Type.GetType(typeName);
@@ -296,7 +296,7 @@ namespace CodeLoom.Fody
             return type;
         }
 
-        public static FieldInfo GetFieldInfo(this FieldDefinition fieldDefinition)
+        internal static FieldInfo GetFieldInfo(this FieldDefinition fieldDefinition)
         {
             var fieldInfo = TryGetFieldInfo(fieldDefinition);
 
@@ -306,7 +306,7 @@ namespace CodeLoom.Fody
             return fieldInfo;
         }
 
-        public static FieldInfo TryGetFieldInfo(this FieldDefinition fieldDefinition)
+        internal static FieldInfo TryGetFieldInfo(this FieldDefinition fieldDefinition)
         {
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic;
             bindingFlags |= fieldDefinition.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
@@ -317,7 +317,7 @@ namespace CodeLoom.Fody
             return fieldInfo;
         }
 
-        public static PropertyInfo GetPropertyInfo(this PropertyDefinition propertyDefinition)
+        internal static PropertyInfo GetPropertyInfo(this PropertyDefinition propertyDefinition)
         {
             var propertyInfo = TryGetPropertyInfo(propertyDefinition);
 
@@ -327,7 +327,7 @@ namespace CodeLoom.Fody
             return propertyInfo;
         }
 
-        public static PropertyInfo TryGetPropertyInfo(this PropertyDefinition propertyDefinition)
+        internal static PropertyInfo TryGetPropertyInfo(this PropertyDefinition propertyDefinition)
         {
             PropertyInfo propertyInfo = null;
 
@@ -365,7 +365,7 @@ namespace CodeLoom.Fody
             return propertyInfo;
         }
 
-        public static MethodBase GetMethodBase(this MethodDefinition methodDefinition)
+        internal static MethodBase GetMethodBase(this MethodDefinition methodDefinition)
         {
             var methodInfo = TryGetMethodBase(methodDefinition);
 
@@ -375,7 +375,7 @@ namespace CodeLoom.Fody
             return methodInfo;
         }
 
-        public static MethodBase TryGetMethodBase(this MethodDefinition methodDefinition)
+        internal static MethodBase TryGetMethodBase(this MethodDefinition methodDefinition)
         {
             MethodBase methodInfo = null;
 
@@ -413,7 +413,7 @@ namespace CodeLoom.Fody
             return methodInfo;
         }
 
-        public static string GetSimpleTypeName(this TypeReference typeReference)
+        internal static string GetSimpleTypeName(this TypeReference typeReference)
         {
             if (typeReference.IsByReference)
             {
@@ -478,7 +478,7 @@ namespace CodeLoom.Fody
             return sb.ToString();
         }
 
-        public static string GetSimpleTypeName(this Type type)
+        internal static string GetSimpleTypeName(this Type type)
         {
             if (type.IsByRef)
             {
@@ -511,7 +511,7 @@ namespace CodeLoom.Fody
             return sb.ToString();
         }
 
-        public static string GetStandardTypeName(this TypeReference typeReference)
+        internal static string GetStandardTypeName(this TypeReference typeReference)
         {
             if (typeReference.FullName == null || typeReference.IsGenericParameter)
                 return null;
@@ -527,7 +527,7 @@ namespace CodeLoom.Fody
             }
         }
 
-        public static bool SameTypeAs(this TypeReference type1, TypeReference type2)
+        internal static bool SameTypeAs(this TypeReference type1, TypeReference type2)
         {
             if (type1.FullName != type2.FullName) return false;
 
@@ -548,7 +548,7 @@ namespace CodeLoom.Fody
             return true;
         }
 
-        public static bool SameTypeAs(this TypeReference type1, Type type2)
+        internal static bool SameTypeAs(this TypeReference type1, Type type2)
         {
             if (type1.GetSimpleTypeName() != type2.GetSimpleTypeName())
                 return false;

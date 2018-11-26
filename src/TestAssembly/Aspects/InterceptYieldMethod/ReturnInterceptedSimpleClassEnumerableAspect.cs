@@ -10,9 +10,9 @@ using TestAssemblyReference;
 
 namespace TestAssembly.Aspects.InterceptYieldMethod
 {
-    public class ReturnInterceptedSimpleClassEnumerableAspect : InterceptMethodAspect
+    public class ReturnInterceptedSimpleClassEnumerableAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             context.Proceed();
 

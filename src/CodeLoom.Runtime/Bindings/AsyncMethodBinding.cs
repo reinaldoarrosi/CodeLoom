@@ -1,10 +1,12 @@
 ﻿using CodeLoom.Aspects;
 using CodeLoom.Contexts;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace CodeLoom.Bindings
 {
+    [DebuggerStepThrough]
     public abstract class AsyncMethodBinding
     {
         public class ProceedContinuation
@@ -51,13 +53,13 @@ namespace CodeLoom.Bindings
 
         private Func<AsyncMethodContext, Task> _runAction;
 
-        public AsyncMethodBinding(InterceptAsyncMethodAspect[] aspects)
+        public AsyncMethodBinding(IInterceptAsyncMethodAspect[] aspects)
         {
             Aspects = aspects;
             _runAction = CreateRunAction(aspects, 0);
         }
 
-        public InterceptAsyncMethodAspect[] Aspects { get; private set; }
+        public IInterceptAsyncMethodAspect[] Aspects { get; private set; }
 
         public Task Run(AsyncMethodContext context)
         {
@@ -66,7 +68,7 @@ namespace CodeLoom.Bindings
 
         internal protected abstract Task Proceed(AsyncMethodContext context);
 
-        private Func<AsyncMethodContext, Task> CreateRunAction(InterceptAsyncMethodAspect[] aspects, int index)
+        private Func<AsyncMethodContext, Task> CreateRunAction(IInterceptAsyncMethodAspect[] aspects, int index)
         {
             return async (ctx) =>
             {

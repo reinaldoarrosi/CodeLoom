@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace CodeLoom.Aspects
 {
-    public abstract class ImplementInterfaceAspect
+    public interface IImplementInterfaceAspect
     {
 
     }

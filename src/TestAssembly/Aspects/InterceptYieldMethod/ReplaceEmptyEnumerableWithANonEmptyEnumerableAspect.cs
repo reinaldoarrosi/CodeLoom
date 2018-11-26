@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptYieldMethod
 {
-    public class ReplaceEmptyEnumerableWithANonEmptyEnumerableAspect : InterceptMethodAspect
+    public class ReplaceEmptyEnumerableWithANonEmptyEnumerableAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             context.Proceed();
             context.SetReturnValue(new[] { DateTime.Now, DateTime.Today });

@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace TestAssembly.Aspects.InterceptYieldMethod
 {
-    public class ReturnOriginalSimpleClassEnumerableAspect : InterceptMethodAspect
+    public class ReturnOriginalSimpleClassEnumerableAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             context.Proceed();
         }

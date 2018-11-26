@@ -12,9 +12,9 @@ using TestAssemblyReference;
 
 namespace TestAssembly.Aspects.InterceptConstructor
 {
-    public class ChangeArgumentsValuesAspect : InterceptMethodAspect
+    public class ChangeArgumentsValuesAspect : IInterceptMethodAspect
     {
-        public override void OnMethodInvoked(MethodContext context)
+        public void OnMethodInvoked(MethodContext context)
         {
             if(context.Instance.GetType() == typeof(InterceptConstructorClass<DateTime>))
             {

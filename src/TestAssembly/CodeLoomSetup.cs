@@ -24,7 +24,7 @@ namespace TestAssembly
                 INSTANCE = new Binding(new[] { new Aspects.InterceptAsyncMethod.ReturnInterceptedValueAspect() });
             }
 
-            public Binding(InterceptAsyncMethodAspect[] aspects)
+            public Binding(IInterceptAsyncMethodAspect[] aspects)
                 : base(aspects)
             { }
 
@@ -58,7 +58,7 @@ namespace TestAssembly
 
     public class CodeLoomSetup : CodeLoom.CodeLoomSetup
     {
-        public override IEnumerable<InterceptMethodAspect> GetMethodAspects(MethodBase method)
+        public override IEnumerable<IInterceptMethodAspect> GetMethodAspects(MethodBase method)
         {
             #region InterceptMethodsClass
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueType)))
@@ -351,7 +351,7 @@ namespace TestAssembly
             #endregion
         }
 
-        public override IEnumerable<InterceptAsyncMethodAspect> GetAsyncMethodAspects(MethodBase method)
+        public override IEnumerable<IInterceptAsyncMethodAspect> GetAsyncMethodAspects(MethodBase method)
         {
             #region InterceptAsyncMethodsClass
             if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalValue)))
