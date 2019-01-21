@@ -166,6 +166,11 @@ namespace CodeLoom.Fody
             return new FieldReference(field.Name, field.FieldType, declaringType);
         }
 
+        internal static GenericInstanceType MakeGenericInstanceType(this TypeReference type, params TypeReference[] arguments)
+        {
+            return TypeReferenceRocks.MakeGenericInstanceType(type, arguments);
+        }
+
         internal static GenericInstanceMethod MakeGenericInstanceMethod(this MethodReference method, params TypeReference[] arguments)
         {
             var genericInstanceMethod = new GenericInstanceMethod(method);
