@@ -46,7 +46,7 @@ namespace TestAssembly
             object[] values = new object[] { a };
             MethodBase methodBase = typeof(Test).GetMethod("GenericMethod");
             Arguments arguments = new Arguments(values);
-            AsyncMethodContext context = new AsyncMethodContext(this, methodBase, arguments);
+            AsyncMethodContext context = new AsyncMethodContext(this, methodBase.DeclaringType.TypeHandle, methodBase.MethodHandle, arguments);
 
             var t = Binding.INSTANCE.Run(context);
         }

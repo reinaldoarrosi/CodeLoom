@@ -11,17 +11,24 @@ namespace CodeLoom.Contexts
     [DebuggerStepThrough]
     public class MethodContext
     {
-        public MethodContext(object instance, MethodBase method, Arguments arguments)
+        private RuntimeTypeHandle _typeHandle;
+        private RuntimeMethodHandle _methodHandle;
+        private Lazy<MethodBase> _method;
+
+        public MethodContext(object instance, RuntimeTypeHandle typeHandle, RuntimeMethodHandle methodHandle, Arguments arguments)
         {
+            _typeHandle = typeHandle;
+            _methodHandle = methodHandle;
+            _method = new Lazy<MethodBase>(() => MethodBase.GetMethodFromHandle(_methodHandle, _typeHandle));
+
             Instance = instance;
-            Method = method;
             Arguments = arguments;
         }
 
         public object Instance { get; private set; }
-        public MethodBase Method { get; private set; }
         public Arguments Arguments { get; private set; }
         public object ReturnValue { get; private set; }
+        public MethodBase Method { get { return _method.Value; } }
 
         internal Action<MethodContext> ProceedDelegate { get; set; }
 
