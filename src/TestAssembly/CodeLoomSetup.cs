@@ -64,7 +64,7 @@ namespace TestAssembly
             #region InterceptMethodsClass
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueType)))
                 yield return new Aspects.InterceptMethod.ReturnOriginalValueTypeAspect();
-            
+
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalRefType)))
                 yield return new Aspects.InterceptMethod.ReturnOriginalRefTypeAspect();
 
@@ -235,7 +235,7 @@ namespace TestAssembly
                 yield return new Aspects.InterceptGenericMethod.GenericMethodsWithRepeatedGenericParameter.GenericWithRepeatedGenericParameterReturnInterceptedOutParametersAspect();
             #endregion
             #endregion
-            
+
             #region InterceptGenericMethodsWithConstraintsClass
             #region Simple methods
             if (method == typeof(InterceptGenericMethodsWithConstraintsClass<,>).GetMethod(nameof(InterceptGenericMethodsWithConstraintsClass<int, int>.ReturnOriginalValueFromFirstParameter)))
@@ -243,7 +243,7 @@ namespace TestAssembly
 
             if (method == typeof(InterceptGenericMethodsWithConstraintsClass<,>).GetMethod(nameof(InterceptGenericMethodsWithConstraintsClass<int, int>.ReturnInterceptedValueFromFirstParameter)))
                 yield return new Aspects.InterceptGenericMethodWithConstraints.SimpleMethods.ReturnInterceptedValueFromFirstParameterAspect();
-            
+
             if (method == typeof(InterceptGenericMethodsWithConstraintsClass<,>).GetMethod(nameof(InterceptGenericMethodsWithConstraintsClass<int, int>.ReturnOriginalParametersAsString)))
                 yield return new Aspects.InterceptGenericMethodWithConstraints.SimpleMethods.ReturnOriginalParametersAsStringAspect();
 
@@ -293,10 +293,10 @@ namespace TestAssembly
             if (method == typeof(InterceptGenericMethodsWithConstraintsClass<,>).GetMethod(nameof(InterceptGenericMethodsWithConstraintsClass<int, int>.GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameter)))
                 yield return new Aspects.InterceptGenericMethodWithConstraints.GenericMethodsWithRepeatedGenericParameter.GenericWithRepeatedGenericParameterReturnOriginalValueFromFirstParameterAspect();
 
-            
+
             if (method == typeof(InterceptGenericMethodsWithConstraintsClass<,>).GetMethod(nameof(InterceptGenericMethodsWithConstraintsClass<int, int>.GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameter)))
                 yield return new Aspects.InterceptGenericMethodWithConstraints.GenericMethodsWithRepeatedGenericParameter.GenericWithRepeatedGenericParameterReturnInterceptedValueFromFirstParameterAspect();
-            
+
             if (method == typeof(InterceptGenericMethodsWithConstraintsClass<,>).GetMethod(nameof(InterceptGenericMethodsWithConstraintsClass<int, int>.GenericWithRepeatedGenericParameterReturnOriginalParametersAsString)))
                 yield return new Aspects.InterceptGenericMethodWithConstraints.GenericMethodsWithRepeatedGenericParameter.GenericWithRepeatedGenericParameterReturnOriginalParametersAsStringAspect();
 

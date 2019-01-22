@@ -1,4 +1,5 @@
 ﻿using CodeLoom.Aspects;
+using CodeLoom.Fody.Helpers;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using System;

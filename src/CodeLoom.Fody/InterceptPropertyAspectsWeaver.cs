@@ -11,21 +11,23 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
+using CodeLoom.Fody.Helpers;
 
 namespace CodeLoom.Fody
 {
     internal class InterceptPropertyAspectsWeaver : InterceptMethodAspectsWeaver
     {  
-        internal ModuleWeaver ModuleWeaver;
+        internal readonly ModuleWeaver ModuleWeaver;
+        internal readonly MethodWeaverHelper MethodWeaverHelper;
+        internal readonly Dictionary<System.Reflection.PropertyInfo, bool> WeavedProperties;
 
         internal InterceptPropertyAspectsWeaver(ModuleWeaver moduleWeaver)
             : base(moduleWeaver)
         {
             ModuleWeaver = moduleWeaver;
+            MethodWeaverHelper = new MethodWeaverHelper(moduleWeaver);
             WeavedProperties = new Dictionary<System.Reflection.PropertyInfo, bool>();
         }
-
-        internal Dictionary<System.Reflection.PropertyInfo, bool> WeavedProperties { get; set; }
 
         internal override void Weave(TypeDefinition typeDefinition)
         {
@@ -78,53 +80,52 @@ namespace CodeLoom.Fody
                 }
 
                 // clone the original getter because we're going to rewrite it
-                var clonedGetMethod = propertyDefinition.GetMethod != null ? CloneMethod(typeDefinition, propertyDefinition.GetMethod, true) : null;
+                var clonedGetMethod = propertyDefinition.GetMethod != null ? MethodWeaverHelper.CloneMethod(typeDefinition, propertyDefinition.GetMethod) : null;
                 if (clonedGetMethod != null) typeDefinition.Methods.Add(clonedGetMethod);
 
                 // clone the original setter because we're going to rewrite it
-                var clonedSetMethod = propertyDefinition.SetMethod != null ? CloneMethod(typeDefinition, propertyDefinition.SetMethod, true) : null;
+                var clonedSetMethod = propertyDefinition.SetMethod != null ? MethodWeaverHelper.CloneMethod(typeDefinition, propertyDefinition.SetMethod) : null;
                 if (clonedSetMethod != null) typeDefinition.Methods.Add(clonedSetMethod);
 
                 // creates a Binding class that inherits from PropertyBinding
                 // this class is used to invoke the aspects in a way that works with generic methods
                 var propertyGenericParameters = (propertyDefinition.GetMethod ?? propertyDefinition.SetMethod).GenericParameters;
-                var bindingTypeDef = CreateBindingTypeDef(typeDefinition, typeof(PropertyBinding), propertyDefinition.Name, propertyGenericParameters);
+                var bindingTypeDef = MethodWeaverHelper.CreateBindingTypeDef(typeDefinition, typeof(PropertyBinding), propertyDefinition.Name, propertyGenericParameters);
 
                 // creates the static INSTANCE field that will hold the Binding instance, and adds it to our class
-                var instanceField = CreateBindingInstanceField(bindingTypeDef);
+                var instanceField = MethodWeaverHelper.CreateBindingInstanceField(bindingTypeDef);
                 bindingTypeDef.Fields.Add(instanceField);
 
                 // creates the constructor of and adds it to our Binding class
-                var ctor = CreateBindingCtor(bindingTypeDef, typeof(IInterceptPropertyAspect));
+                var ctor = MethodWeaverHelper.CreateBindingCtor(bindingTypeDef, typeof(PropertyBinding), typeof(IInterceptPropertyAspect));
                 bindingTypeDef.Methods.Add(ctor);
 
                 // creates the static constructor and adds it to our Binding class 
-                var staticCtor = CreateBindingStaticCtor(bindingTypeDef, instanceField, ctor, typeof(IInterceptPropertyAspect), aspects);
+                var staticCtor = MethodWeaverHelper.CreateBindingStaticCtor(bindingTypeDef, instanceField, ctor, typeof(IInterceptPropertyAspect), aspects);
                 bindingTypeDef.Methods.Add(staticCtor);
 
-                
                 if (clonedGetMethod != null)
                 {
                     // creates the ProceedGet method that overrides the abstract method MethodBinding.Proceed/AsyncMethodBinding.Proceed
                     var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-                    var abstractProceedGetMethod = ModuleDefinition.ImportReference(typeof(PropertyBinding).GetMethod("ProceedGet", bindingFlags));
-                    var proceedGetMethod = CreateBindingProceedMethod(typeDefinition, bindingTypeDef, typeof(PropertyContext), clonedGetMethod, abstractProceedGetMethod, false);
+                    var abstractProceedGetMethod = ModuleWeaver.ModuleDefinition.ImportReference(typeof(PropertyBinding).GetMethod("ProceedGet", bindingFlags));
+                    var proceedGetMethod = MethodWeaverHelper.CreateBindingProceedMethod(typeDefinition, bindingTypeDef, typeof(PropertyContext), clonedGetMethod, abstractProceedGetMethod, false);
                     bindingTypeDef.Methods.Add(proceedGetMethod);
 
                     // rewrites the original method so that it calls AsyncMethodBinding.Run
-                    RewriteOriginalMethod(typeDefinition, bindingTypeDef, typeof(PropertyContext), propertyDefinition.GetMethod, false);
+                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, bindingTypeDef, typeof(PropertyBinding), typeof(PropertyContext), propertyDefinition.GetMethod, false);
                 }
 
                 if (clonedSetMethod != null)
                 {
                     // creates the ProceedGet method that overrides the abstract method MethodBinding.Proceed/AsyncMethodBinding.Proceed
                     var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-                    var abstractProceedSetMethod = ModuleDefinition.ImportReference(typeof(PropertyBinding).GetMethod("ProceedSet", bindingFlags));
-                    var proceedSetMethod = CreateBindingProceedMethod(typeDefinition, bindingTypeDef, typeof(PropertyContext), clonedSetMethod, abstractProceedSetMethod, false);
+                    var abstractProceedSetMethod = ModuleWeaver.ModuleDefinition.ImportReference(typeof(PropertyBinding).GetMethod("ProceedSet", bindingFlags));
+                    var proceedSetMethod = MethodWeaverHelper.CreateBindingProceedMethod(typeDefinition, bindingTypeDef, typeof(PropertyContext), clonedSetMethod, abstractProceedSetMethod, false);
                     bindingTypeDef.Methods.Add(proceedSetMethod);
 
                     // rewrites the original method so that it calls AsyncMethodBinding.Run
-                    RewriteOriginalMethod(typeDefinition, bindingTypeDef, typeof(PropertyContext), propertyDefinition.SetMethod, false);
+                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, bindingTypeDef, typeof(PropertyBinding), typeof(PropertyContext), propertyDefinition.SetMethod, false);
                 }
 
                 // adds our Binding class as a nested type of the class that we're weaving

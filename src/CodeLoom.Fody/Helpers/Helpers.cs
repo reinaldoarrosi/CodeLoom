@@ -9,7 +9,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace CodeLoom.Fody
+namespace CodeLoom.Fody.Helpers
 {
     internal static class Helpers
     {
