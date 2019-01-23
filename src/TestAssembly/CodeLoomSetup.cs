@@ -14,49 +14,6 @@ using TestAssemblyReference;
 
 namespace TestAssembly
 {
-    public class Test
-    {
-        private class Binding : AsyncMethodBinding
-        {
-            public static Binding INSTANCE;
-
-            static Binding()
-            {
-                INSTANCE = new Binding(new[] { new Aspects.InterceptAsyncMethod.ReturnInterceptedValueAspect() });
-            }
-
-            public Binding(IInterceptAsyncMethodAspect[] aspects)
-                : base(aspects)
-            { }
-
-            protected override Task Proceed(AsyncMethodContext context)
-            {
-                var instance = (Test)context.Instance;
-                var arguments = context.Arguments;
-
-                int a = (int)arguments.GetArgument(0);
-                instance.Original_MethodA(a);
-
-                return Task.CompletedTask;
-            }
-        }
-
-        public void MethodA(int a)
-        {
-            object[] values = new object[] { a };
-            MethodBase methodBase = typeof(Test).GetMethod("GenericMethod");
-            Arguments arguments = new Arguments(values);
-            AsyncMethodContext context = new AsyncMethodContext(this, methodBase.DeclaringType.TypeHandle, methodBase.MethodHandle, arguments);
-
-            var t = Binding.INSTANCE.Run(context);
-        }
-
-        public async void Original_MethodA(int a)
-        {
-            await Task.Delay(1);
-        }
-    }
-
     public class CodeLoomSetup : CodeLoom.CodeLoomSetup
     {
         public override IEnumerable<IInterceptMethodAspect> GetMethodAspects(MethodBase method)
@@ -453,6 +410,7 @@ namespace TestAssembly
 
         public override IEnumerable<IInterceptPropertyAspect> GetPropertyAspects(PropertyInfo property)
         {
+            #region InterceptPropertiesClass
             if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalValueType)))
                 yield return new Aspects.InterceptProperty.OriginalValueTypeAspect();
 
@@ -572,6 +530,7 @@ namespace TestAssembly
 
             if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedSetOnlyProperty)))
                 yield return new Aspects.InterceptProperty.InterceptedSetOnlyPropertyAspect();
+            #endregion
         }
     }
 }
