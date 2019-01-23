@@ -346,8 +346,10 @@ namespace CodeLoom.Fody.Helpers
                 if (property.Name != propertyDefinition.Name)
                     continue;
 
-                var propertyParameters = property.GetMethod.GetParameters();
-                if (propertyParameters.Length != propertyDefinition.Parameters.Count)
+                if (property.GetMethod == null && propertyDefinition.GetMethod != null)
+                    continue;
+
+                if (property.SetMethod == null && propertyDefinition.SetMethod != null)
                     continue;
 
                 var definitionReturnType = propertyDefinition.PropertyType;
@@ -355,9 +357,21 @@ namespace CodeLoom.Fody.Helpers
                 if (!definitionReturnType.SameTypeAs(propertyReturnType))
                     continue;
 
-                for (int i = 0; i < propertyDefinition.Parameters.Count; i++)
+                var propertyParameters = property.GetMethod?.GetParameters() ?? property.SetMethod?.GetParameters();
+                var propertyDefParameters = propertyDefinition.GetMethod?.Parameters ?? propertyDefinition.SetMethod?.Parameters;
+
+                if (propertyParameters == null && propertyDefParameters != null)
+                    continue;
+
+                if (propertyParameters != null && propertyDefParameters == null)
+                    continue;
+
+                if (propertyParameters != null && propertyDefParameters != null && propertyParameters.Length != propertyDefParameters.Count)
+                    continue;
+
+                for (int i = 0; i < propertyDefParameters.Count; i++)
                 {
-                    var definitionParameterType = propertyDefinition.Parameters[i].ParameterType;
+                    var definitionParameterType = propertyDefParameters[i].ParameterType;
                     var propertyParameterType = propertyParameters[i].ParameterType;
                     if (!definitionParameterType.SameTypeAs(propertyParameterType))
                         continue;

@@ -88,17 +88,17 @@ namespace CodeLoom.Fody.Helpers
 
         public TypeDefinition CreateBindingTypeDef(TypeDefinition typeDefinition, Type bindingType, string name, Collection<GenericParameter> genericParameters)
         {
-            // creates new TypeDefinition that represents a class that inherits from MethodBinding/AsyncMethodBinding
-            var methodBindingTypeRef = ModuleDefinition.ImportReference(bindingType);
+            // creates new TypeDefinition that represents a Binding
+            var bindingTypeRef = ModuleDefinition.ImportReference(bindingType);
             var typeAttributes = TypeAttributes.Sealed | TypeAttributes.NestedPrivate;
             var typeName = Helpers.GetUniqueBindingName(typeDefinition, name);
-            var typeDef = new TypeDefinition(typeDefinition.Namespace, typeName, typeAttributes, methodBindingTypeRef);
+            var typeDef = new TypeDefinition(typeDefinition.Namespace, typeName, typeAttributes, bindingTypeRef);
 
             // adds the CompilerGeneratedAttribute to the type that we are creating
             var compilerGeneratedAttrCtor = ModuleDefinition.ImportReference(typeof(CompilerGeneratedAttribute).GetConstructors().First());
             typeDef.CustomAttributes.Add(new CustomAttribute(compilerGeneratedAttrCtor));
 
-            // adds the DebuggerStepThroughAttribute so that the debugger skips the generated MethodBinding class
+            // adds the DebuggerStepThroughAttribute so that the debugger skips the generated Binding class
             var debuggerStepThroughAttribute = ModuleDefinition.ImportReference(typeof(DebuggerStepThroughAttribute).GetConstructors().First());
             typeDef.CustomAttributes.Add(new CustomAttribute(debuggerStepThroughAttribute));
 
@@ -111,24 +111,24 @@ namespace CodeLoom.Fody.Helpers
             return typeDef;
         }
 
-        public FieldDefinition CreateBindingInstanceField(TypeDefinition methodBindingTypeDef)
+        public FieldDefinition CreateBindingInstanceField(TypeDefinition bindingTypeDef)
         {
             // creates a static field that will hold an instance of our "method binding"
             // this effectively representes the singleton pattern, meaning that we will only have one single instance of a particular binding
             // which gives us better performance when invoking the method
-            var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(methodBindingTypeDef.GenericParameters.ToArray());
+            var bindingTypeRef = bindingTypeDef.MakeTypeReference(bindingTypeDef.GenericParameters.ToArray());
             var instanceFieldAttributes = FieldAttributes.Static | FieldAttributes.Public;
-            var instanceField = new FieldDefinition("INSTANCE", instanceFieldAttributes, methodBindingTypeRef);
+            var instanceField = new FieldDefinition("INSTANCE", instanceFieldAttributes, bindingTypeRef);
 
             return instanceField;
         }
 
-        public MethodDefinition CreateBindingCtor(TypeDefinition methodBindingTypeDef, Type bindingType, Type aspectsType)
+        public MethodDefinition CreateBindingCtor(TypeDefinition bindingTypeDef, Type bindingType, Type aspectsType)
         {
             // create a private constructor for our Binding
             // this constructor receives an array of aspects
             // which corresponds to all the aspects that were applied to the original member
-            var methodBindingCtorRef = ModuleDefinition.ImportReference(bindingType.GetConstructors().First());
+            var bindingCtorRef = ModuleDefinition.ImportReference(bindingType.GetConstructors().First());
             var ctorAttributes = MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName;
             var ctor = new MethodDefinition(".ctor", ctorAttributes, ModuleWeaver.TypeSystem.VoidReference);
             ctor.Body.InitLocals = true;
@@ -139,18 +139,18 @@ namespace CodeLoom.Fody.Helpers
             var ilProcessor = ctor.Body.GetILProcessor();
             ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_0));
             ilProcessor.Append(Instruction.Create(OpCodes.Ldarg_1));
-            ilProcessor.Append(Instruction.Create(OpCodes.Call, methodBindingCtorRef));
+            ilProcessor.Append(Instruction.Create(OpCodes.Call, bindingCtorRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Ret));
 
             return ctor;
         }
 
-        public MethodDefinition CreateBindingStaticCtor(TypeDefinition methodBindingTypeDef, FieldDefinition instanceField, MethodDefinition ctor, Type aspectsType, object[] aspects)
+        public MethodDefinition CreateBindingStaticCtor(TypeDefinition bindingTypeDef, FieldDefinition instanceField, MethodDefinition ctor, Type aspectsType, object[] aspects)
         {
             // get type and method reference that we'll need later
-            var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(methodBindingTypeDef.GenericParameters.ToArray());
-            var ctorRef = ctor.MakeMethodReference(methodBindingTypeRef, ctor.GenericParameters.ToArray());
-            var instanceFieldRef = instanceField.MakeFieldReference(methodBindingTypeRef);
+            var bindingTypeRef = bindingTypeDef.MakeTypeReference(bindingTypeDef.GenericParameters.ToArray());
+            var ctorRef = ctor.MakeMethodReference(bindingTypeRef, ctor.GenericParameters.ToArray());
+            var instanceFieldRef = instanceField.MakeFieldReference(bindingTypeRef);
 
             // creates a static constructor on our "method binding"
             // this will be used to instantiate our singleton instance
@@ -183,7 +183,7 @@ namespace CodeLoom.Fody.Helpers
             }
 
             // invokes the constructor of the "method binding" passing the array of aspects as argument
-            // stores the instance into the static field created when we called CreateMethodBindingInstanceField earlier
+            // stores the instance into the static field created when we called CreateBindingInstanceField earlier
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, aspectsArrayVar));
             ilProcessor.Append(Instruction.Create(OpCodes.Newobj, ctorRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Stsfld, instanceFieldRef));
@@ -192,10 +192,10 @@ namespace CodeLoom.Fody.Helpers
             return staticCtor;
         }
 
-        public MethodDefinition CreateBindingProceedMethod(TypeDefinition typeDefinition, TypeDefinition methodBindingTypeDef, Type contextType, MethodDefinition clonedMethod, MethodReference methodToOverrideRef, bool async)
+        public MethodDefinition CreateBindingProceedMethod(TypeDefinition typeDefinition, TypeDefinition bindingTypeDef, Type contextType, MethodDefinition clonedMethod, MethodReference methodToOverrideRef, bool async)
         {
             // get type ad method references that we'll use later
-            var availableGenericParameters = methodBindingTypeDef.GenericParameters.ToArray();
+            var availableGenericParameters = bindingTypeDef.GenericParameters.ToArray();
             var typeDefinitionRef = typeDefinition.MakeTypeReference(typeDefinition.GenericParameters.ToArray());
             var clonedMethodRef = clonedMethod.MakeMethodReference(typeDefinitionRef, availableGenericParameters);
             var proceedMethodReturnType = async ? ModuleDefinition.ImportReference(typeof(Task)) : ModuleWeaver.TypeSystem.VoidReference;
@@ -203,7 +203,7 @@ namespace CodeLoom.Fody.Helpers
             // creates a new MethodDefinition representing the "Proceed" method in our "method binding"
             // the "Proceed" method is responsible for invoking the original code of the method that we're intercepting
             var proceedMethodAttributes = MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.Virtual;
-            var proceedMethod = new MethodDefinition("Proceed", proceedMethodAttributes, proceedMethodReturnType);
+            var proceedMethod = new MethodDefinition(methodToOverrideRef.Name, proceedMethodAttributes, proceedMethodReturnType);
             proceedMethod.Body.InitLocals = true;
             proceedMethod.Overrides.Add(methodToOverrideRef);
 
@@ -394,7 +394,7 @@ namespace CodeLoom.Fody.Helpers
             return proceedMethod;
         }
 
-        public void RewriteOriginalMethod(TypeDefinition typeDefinition, TypeDefinition methodBindingTypeDef, Type bindingType, Type contextType, MethodDefinition originalMethod, bool async)
+        public void RewriteOriginalMethod(TypeDefinition typeDefinition, TypeDefinition bindingTypeDef, string bindingRunMethodName, Type bindingType, Type contextType, MethodDefinition originalMethod, bool async)
         {
             // get type and method references that we'll need later
             var typeDefintionRef = typeDefinition.MakeTypeReference(typeDefinition.GenericParameters.ToArray());
@@ -513,15 +513,15 @@ namespace CodeLoom.Fody.Helpers
             ilProcessor.Append(Instruction.Create(OpCodes.Newobj, contextCtor));
             ilProcessor.Append(Instruction.Create(OpCodes.Stloc, contextVar));
 
-            // invoke MethodBinding.Run which will then invoke each of the aspects associated with the method we're intercepting
-            var methodBindingTypeRef = methodBindingTypeDef.MakeTypeReference(availableGenericParameters);
-            var methodBindingInstanceFieldDef = methodBindingTypeDef.Fields.First(f => f.IsStatic && f.Name == "INSTANCE");
-            var methodBindingInstanceFieldRef = methodBindingInstanceFieldDef.MakeFieldReference(methodBindingTypeRef);
-            var methodBindingRunMethodRef = ModuleDefinition.ImportReference(bindingType.GetMethod("Run"));
+            // invoke the "run" method from the Binding. This method will then invoke each of the aspects associated with the method we're intercepting
+            var bindingTypeRef = bindingTypeDef.MakeTypeReference(availableGenericParameters);
+            var bindingInstanceFieldDef = bindingTypeDef.Fields.First(f => f.IsStatic && f.Name == "INSTANCE");
+            var bindingInstanceFieldRef = bindingInstanceFieldDef.MakeFieldReference(bindingTypeRef);
+            var bindingRunMethodRef = ModuleDefinition.ImportReference(bindingType.GetMethod(bindingRunMethodName));
 
-            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, methodBindingInstanceFieldRef));
+            ilProcessor.Append(Instruction.Create(OpCodes.Ldsfld, bindingInstanceFieldRef));
             ilProcessor.Append(Instruction.Create(OpCodes.Ldloc, contextVar));
-            ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, methodBindingRunMethodRef));
+            ilProcessor.Append(Instruction.Create(OpCodes.Callvirt, bindingRunMethodRef));
 
             // sets the values of MethodContext.Arguments back into the method arguments, because they can be modified when they're "out" or "ref" parameters
             var getArgumentValueMethod = ModuleDefinition.ImportReference(typeof(Arguments).GetMethod(nameof(Arguments.GetArgument), new Type[] { typeof(int) }));

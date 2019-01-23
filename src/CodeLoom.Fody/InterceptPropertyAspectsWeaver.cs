@@ -104,32 +104,32 @@ namespace CodeLoom.Fody
                 var staticCtor = MethodWeaverHelper.CreateBindingStaticCtor(bindingTypeDef, instanceField, ctor, typeof(IInterceptPropertyAspect), aspects);
                 bindingTypeDef.Methods.Add(staticCtor);
 
+                // adds our Binding class as a nested type of the class that we're weaving
+                typeDefinition.NestedTypes.Add(bindingTypeDef);
+
                 if (clonedGetMethod != null)
                 {
-                    // creates the ProceedGet method that overrides the abstract method MethodBinding.Proceed/AsyncMethodBinding.Proceed
+                    // creates the ProceedGet method that overrides the abstract method PropertyBinding.ProceedGet
                     var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
                     var abstractProceedGetMethod = ModuleWeaver.ModuleDefinition.ImportReference(typeof(PropertyBinding).GetMethod("ProceedGet", bindingFlags));
                     var proceedGetMethod = MethodWeaverHelper.CreateBindingProceedMethod(typeDefinition, bindingTypeDef, typeof(PropertyContext), clonedGetMethod, abstractProceedGetMethod, false);
                     bindingTypeDef.Methods.Add(proceedGetMethod);
 
-                    // rewrites the original method so that it calls AsyncMethodBinding.Run
-                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, bindingTypeDef, typeof(PropertyBinding), typeof(PropertyContext), propertyDefinition.GetMethod, false);
+                    // rewrites the original method so that it calls PropertyBinding.RunGetter
+                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, bindingTypeDef, nameof(PropertyBinding.RunGetter), typeof(PropertyBinding), typeof(PropertyContext), propertyDefinition.GetMethod, false);
                 }
 
                 if (clonedSetMethod != null)
                 {
-                    // creates the ProceedGet method that overrides the abstract method MethodBinding.Proceed/AsyncMethodBinding.Proceed
+                    // creates the ProceedGet method that overrides the abstract method PropertyBinding.ProceedSet
                     var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
                     var abstractProceedSetMethod = ModuleWeaver.ModuleDefinition.ImportReference(typeof(PropertyBinding).GetMethod("ProceedSet", bindingFlags));
                     var proceedSetMethod = MethodWeaverHelper.CreateBindingProceedMethod(typeDefinition, bindingTypeDef, typeof(PropertyContext), clonedSetMethod, abstractProceedSetMethod, false);
                     bindingTypeDef.Methods.Add(proceedSetMethod);
 
-                    // rewrites the original method so that it calls AsyncMethodBinding.Run
-                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, bindingTypeDef, typeof(PropertyBinding), typeof(PropertyContext), propertyDefinition.SetMethod, false);
+                    // rewrites the original method so that it calls PropertyBinding.RunSetter
+                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, bindingTypeDef, nameof(PropertyBinding.RunSetter), typeof(PropertyBinding), typeof(PropertyContext), propertyDefinition.SetMethod, false);
                 }
-
-                // adds our Binding class as a nested type of the class that we're weaving
-                typeDefinition.NestedTypes.Add(bindingTypeDef);
             }
         }
     }

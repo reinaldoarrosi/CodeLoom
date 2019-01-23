@@ -34,8 +34,11 @@ namespace CodeLoom.Bindings
             _runSetterAction(context);
         }
 
-        internal protected abstract void ProceedGet(PropertyContext context);
-        internal protected abstract void ProceedSet(PropertyContext context);
+        internal protected virtual void ProceedGet(PropertyContext context)
+        { }
+
+        internal protected virtual void ProceedSet(PropertyContext context)
+        { }
 
         private Action<PropertyContext> CreateRunGetterAction(IInterceptPropertyAspect[] aspects, int index)
         {

@@ -444,5 +444,121 @@ namespace TestAssembly
                 yield return new Aspects.InterceptStaticMethod.ReturnInterceptedT2AsyncAspect();
             #endregion
         }
+
+        public override IEnumerable<IInterceptPropertyAspect> GetPropertyAspects(PropertyInfo property)
+        {
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalValueType)))
+                yield return new Aspects.InterceptProperty.OriginalValueTypeAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalRefType)))
+                yield return new Aspects.InterceptProperty.OriginalRefTypeAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalExternalValueType)))
+                yield return new Aspects.InterceptProperty.OriginalExternalValueTypeAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalExternalRefType)))
+                yield return new Aspects.InterceptProperty.OriginalExternalRefTypeAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalGenericType)))
+                yield return new Aspects.InterceptProperty.OriginalGenericTypeAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalValueTypeArray)))
+                yield return new Aspects.InterceptProperty.OriginalValueTypeArrayAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalRefTypeArray)))
+                yield return new Aspects.InterceptProperty.OriginalRefTypeArrayAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalExternalValueTypeArray)))
+                yield return new Aspects.InterceptProperty.OriginalExternalValueTypeArrayAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalExternalRefTypeArray)))
+                yield return new Aspects.InterceptProperty.OriginalExternalRefTypeArrayAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalGenericTypeArray)))
+                yield return new Aspects.InterceptProperty.OriginalGenericTypeArrayAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalValueTypeList)))
+                yield return new Aspects.InterceptProperty.OriginalValueTypeListAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalRefTypeList)))
+                yield return new Aspects.InterceptProperty.OriginalRefTypeListAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalExternalValueTypeList)))
+                yield return new Aspects.InterceptProperty.OriginalExternalValueTypeListAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalExternalRefTypeList)))
+                yield return new Aspects.InterceptProperty.OriginalExternalRefTypeListAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalGenericTypeList)))
+                yield return new Aspects.InterceptProperty.OriginalGenericTypeListAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedValueType)))
+                yield return new Aspects.InterceptProperty.InterceptedValueTypeAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedRefType)))
+                yield return new Aspects.InterceptProperty.InterceptedRefTypeAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedExternalValueType)))
+                yield return new Aspects.InterceptProperty.InterceptedExternalValueTypeAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedExternalRefType)))
+                yield return new Aspects.InterceptProperty.InterceptedExternalRefTypeAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedGenericType)))
+                yield return new Aspects.InterceptProperty.InterceptedGenericTypeAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedValueTypeArray)))
+                yield return new Aspects.InterceptProperty.InterceptedValueTypeArrayAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedRefTypeArray)))
+                yield return new Aspects.InterceptProperty.InterceptedRefTypeArrayAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedExternalValueTypeArray)))
+                yield return new Aspects.InterceptProperty.InterceptedExternalValueTypeArrayAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedExternalRefTypeArray)))
+                yield return new Aspects.InterceptProperty.InterceptedExternalRefTypeArrayAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedGenericTypeArray)))
+                yield return new Aspects.InterceptProperty.InterceptedGenericTypeArrayAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedValueTypeList)))
+                yield return new Aspects.InterceptProperty.InterceptedValueTypeListAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedRefTypeList)))
+                yield return new Aspects.InterceptProperty.InterceptedRefTypeListAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedExternalValueTypeList)))
+                yield return new Aspects.InterceptProperty.InterceptedExternalValueTypeListAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedExternalRefTypeList)))
+                yield return new Aspects.InterceptProperty.InterceptedExternalRefTypeListAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedGenericTypeList)))
+                yield return new Aspects.InterceptProperty.InterceptedGenericTypeListAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperties().First(p => p.GetIndexParameters().Length > 0))
+                yield return new Aspects.InterceptProperty.IndexerPropertyAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalGetOnlyYieldProperty)))
+                yield return new Aspects.InterceptProperty.OriginalGetOnlyYieldPropertyAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalSetOnlyProperty)))
+                yield return new Aspects.InterceptProperty.OriginalSetOnlyPropertyAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedGetOnlyYieldProperty)))
+                yield return new Aspects.InterceptProperty.InterceptedGetOnlyYieldPropertyAspect();
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedSetOnlyProperty)))
+                yield return new Aspects.InterceptProperty.InterceptedSetOnlyPropertyAspect();
+        }
     }
 }

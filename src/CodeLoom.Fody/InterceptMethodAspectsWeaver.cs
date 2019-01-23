@@ -99,31 +99,31 @@ namespace CodeLoom.Fody
 
                     // creates a Binding class that inherits from AsyncMethodBinding
                     // this class is used to invoke the aspects in a way that works with generic methods
-                    var methodBindingTypeDef = MethodWeaverHelper.CreateBindingTypeDef(typeDefinition, typeof(AsyncMethodBinding), originalMethod.Name, originalMethod.GenericParameters);
+                    var bindingTypeDef = MethodWeaverHelper.CreateBindingTypeDef(typeDefinition, typeof(AsyncMethodBinding), originalMethod.Name, originalMethod.GenericParameters);
 
                     // creates the static INSTANCE field that will hold the Binding instance, and adds it to our class
-                    var instanceField = MethodWeaverHelper.CreateBindingInstanceField(methodBindingTypeDef);
-                    methodBindingTypeDef.Fields.Add(instanceField);
+                    var instanceField = MethodWeaverHelper.CreateBindingInstanceField(bindingTypeDef);
+                    bindingTypeDef.Fields.Add(instanceField);
 
                     // creates the constructor of and adds it to our Binding class
-                    var ctor = MethodWeaverHelper.CreateBindingCtor(methodBindingTypeDef, typeof(AsyncMethodBinding), typeof(IInterceptAsyncMethodAspect));
-                    methodBindingTypeDef.Methods.Add(ctor);
+                    var ctor = MethodWeaverHelper.CreateBindingCtor(bindingTypeDef, typeof(AsyncMethodBinding), typeof(IInterceptAsyncMethodAspect));
+                    bindingTypeDef.Methods.Add(ctor);
 
                     // creates the static constructor and adds it to our Binding class 
-                    var staticCtor = MethodWeaverHelper.CreateBindingStaticCtor(methodBindingTypeDef, instanceField, ctor, typeof(IInterceptAsyncMethodAspect), aspects);
-                    methodBindingTypeDef.Methods.Add(staticCtor);
+                    var staticCtor = MethodWeaverHelper.CreateBindingStaticCtor(bindingTypeDef, instanceField, ctor, typeof(IInterceptAsyncMethodAspect), aspects);
+                    bindingTypeDef.Methods.Add(staticCtor);
 
                     // creates the Proceed method that overrides the abstract method MethodBinding.Proceed/AsyncMethodBinding.Proceed
                     var bindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
                     var abstractProceedMethod = ModuleWeaver.ModuleDefinition.ImportReference(typeof(AsyncMethodBinding).GetMethod("Proceed", bindingFlags));
-                    var proceedMethod = MethodWeaverHelper.CreateBindingProceedMethod(typeDefinition, methodBindingTypeDef, typeof(AsyncMethodContext), clonedMethod, abstractProceedMethod, true);
-                    methodBindingTypeDef.Methods.Add(proceedMethod);
+                    var proceedMethod = MethodWeaverHelper.CreateBindingProceedMethod(typeDefinition, bindingTypeDef, typeof(AsyncMethodContext), clonedMethod, abstractProceedMethod, true);
+                    bindingTypeDef.Methods.Add(proceedMethod);
 
                     // adds our Binding class as a nested type of the class that we're weaving
-                    typeDefinition.NestedTypes.Add(methodBindingTypeDef);
+                    typeDefinition.NestedTypes.Add(bindingTypeDef);
 
                     // rewrites the original method so that it calls AsyncMethodBinding.Run
-                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, methodBindingTypeDef, typeof(AsyncMethodBinding), typeof(AsyncMethodContext), originalMethod, true);
+                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, bindingTypeDef, nameof(AsyncMethodBinding.Run), typeof(AsyncMethodBinding), typeof(AsyncMethodContext), originalMethod, true);
                 }
                 else
                 {
@@ -141,31 +141,31 @@ namespace CodeLoom.Fody
 
                     // creates a Binding class that inherits from MethodBinding
                     // this class is used to invoke the aspects in a way that works with generic methods
-                    var methodBindingTypeDef = MethodWeaverHelper.CreateBindingTypeDef(typeDefinition, typeof(MethodBinding), originalMethod.Name, originalMethod.GenericParameters);
+                    var bindingTypeDef = MethodWeaverHelper.CreateBindingTypeDef(typeDefinition, typeof(MethodBinding), originalMethod.Name, originalMethod.GenericParameters);
 
                     // creates the static INSTANCE field that will hold the Binding instance, and adds it to our class
-                    var instanceField = MethodWeaverHelper.CreateBindingInstanceField(methodBindingTypeDef);
-                    methodBindingTypeDef.Fields.Add(instanceField);
+                    var instanceField = MethodWeaverHelper.CreateBindingInstanceField(bindingTypeDef);
+                    bindingTypeDef.Fields.Add(instanceField);
 
                     // creates the constructor of and adds it to our Binding class
-                    var ctor = MethodWeaverHelper.CreateBindingCtor(methodBindingTypeDef, typeof(MethodBinding), typeof(IInterceptMethodAspect));
-                    methodBindingTypeDef.Methods.Add(ctor);
+                    var ctor = MethodWeaverHelper.CreateBindingCtor(bindingTypeDef, typeof(MethodBinding), typeof(IInterceptMethodAspect));
+                    bindingTypeDef.Methods.Add(ctor);
 
                     // creates the static constructor and adds it to our Binding class 
-                    var staticCtor = MethodWeaverHelper.CreateBindingStaticCtor(methodBindingTypeDef, instanceField, ctor, typeof(IInterceptMethodAspect), aspects);
-                    methodBindingTypeDef.Methods.Add(staticCtor);
+                    var staticCtor = MethodWeaverHelper.CreateBindingStaticCtor(bindingTypeDef, instanceField, ctor, typeof(IInterceptMethodAspect), aspects);
+                    bindingTypeDef.Methods.Add(staticCtor);
 
                     // creates the Proceed method that overrides the abstract method MethodBinding.Proceed/AsyncMethodBinding.Proceed
                     var bindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
                     var abstractProceedMethod = ModuleWeaver.ModuleDefinition.ImportReference(typeof(MethodBinding).GetMethod("Proceed", bindingFlags));
-                    var proceedMethod = MethodWeaverHelper.CreateBindingProceedMethod(typeDefinition, methodBindingTypeDef, typeof(MethodContext), clonedMethod, abstractProceedMethod, false);
-                    methodBindingTypeDef.Methods.Add(proceedMethod);
+                    var proceedMethod = MethodWeaverHelper.CreateBindingProceedMethod(typeDefinition, bindingTypeDef, typeof(MethodContext), clonedMethod, abstractProceedMethod, false);
+                    bindingTypeDef.Methods.Add(proceedMethod);
 
                     // adds our Binding class as a nested type of the class that we're weaving
-                    typeDefinition.NestedTypes.Add(methodBindingTypeDef);
+                    typeDefinition.NestedTypes.Add(bindingTypeDef);
 
                     // rewrites the original method so that it calls MethodBinding.Run
-                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, methodBindingTypeDef, typeof(MethodBinding), typeof(MethodContext), originalMethod, false);
+                    MethodWeaverHelper.RewriteOriginalMethod(typeDefinition, bindingTypeDef, nameof(MethodBinding.Run), typeof(MethodBinding), typeof(MethodContext), originalMethod, false);
                 }
             }
         }
