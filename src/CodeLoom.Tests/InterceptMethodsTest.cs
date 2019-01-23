@@ -630,5 +630,20 @@ namespace CodeLoom.Tests
                 });
             }
         }
+
+        public class InterceptedByMultipleAspects
+        {
+            [Fact]
+            private void returns_intercepted_value_when_InterceptedByMultipleAspects_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptMethodsClass();
+                    var result = instance.InterceptedByMultipleAspects(1, 2);
+
+                    Assert.Equal(6, result);
+                });
+            }
+        }
     }
 }

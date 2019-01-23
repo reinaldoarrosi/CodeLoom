@@ -52,6 +52,7 @@ namespace TestAssembly.ClassesToWeave
 
         public Tuple<int, string, SimpleStruct, SimpleClass, T, object> _indexerValue;
         public int _setOnlyPropertyValue;
+        public int _interceptedByMultipleAspectsValue;
 
         public int OriginalValueType { get; set; }
         public string OriginalRefType { get; set; }
@@ -88,6 +89,18 @@ namespace TestAssembly.ClassesToWeave
         public List<SimpleStruct> InterceptedExternalValueTypeList { get; set; }
         public List<SimpleClass> InterceptedExternalRefTypeList { get; set; }
         public List<T> InterceptedGenericTypeList { get; set; }
+
+        public int InterceptedByMultipleAspects
+        {
+            get
+            {
+                return _interceptedByMultipleAspectsValue;
+            }
+            set
+            {
+                _interceptedByMultipleAspectsValue = value;
+            }
+        }
 
         public Tuple<int, string, SimpleStruct, SimpleClass, T, object> this[int a, string b, SimpleStruct c, SimpleClass d, T e]
         {

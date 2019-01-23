@@ -154,6 +154,12 @@ namespace TestAssembly
 
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ChangeSumToSubtract)))
                 yield return new Aspects.InterceptMethod.ChangeSumToSubtractAspect();
+
+            if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.InterceptedByMultipleAspects)))
+            {
+                yield return new Aspects.InterceptMethod.InterceptedByMultipleAspects1();
+                yield return new Aspects.InterceptMethod.InterceptedByMultipleAspects2();
+            }
             #endregion
 
             #region InterceptGenericMethodsClass
@@ -541,6 +547,13 @@ namespace TestAssembly
 
             if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedGenericTypeList)))
                 yield return new Aspects.InterceptProperty.InterceptedGenericTypeListAspect();
+
+
+            if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.InterceptedByMultipleAspects)))
+            {
+                yield return new Aspects.InterceptProperty.InterceptedByMultipleAspects1();
+                yield return new Aspects.InterceptProperty.InterceptedByMultipleAspects2();
+            }
 
 
             if (property == typeof(InterceptPropertiesClass<>).GetProperties().First(p => p.GetIndexParameters().Length > 0))

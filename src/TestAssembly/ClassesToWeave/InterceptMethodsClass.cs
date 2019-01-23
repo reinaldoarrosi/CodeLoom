@@ -122,5 +122,10 @@ namespace TestAssembly.ClassesToWeave
         {
             return a + b;
         }
+
+        public int InterceptedByMultipleAspects(int a, int b)
+        {
+            return a + b;
+        }
     }
 }

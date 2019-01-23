@@ -1033,5 +1033,36 @@ namespace CodeLoom.Tests
                 });
             }
         }
+
+        public class InterceptedByMultipleAspects
+        {
+            [Fact]
+            private void returns_intercepted_value_when_InterceptedByMultipleAspects_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptPropertiesClass<InheritsFromSimpleClass>();
+                    instance._interceptedByMultipleAspectsValue = 1;
+
+                    var result = instance.InterceptedByMultipleAspects;
+
+                    Assert.Equal(4, result);
+                });
+            }
+
+            [Fact]
+            private void sets_intercepted_value_when_InterceptedByMultipleAspects_is_called()
+            {
+                Execute(() =>
+                {
+                    var instance = new InterceptPropertiesClass<InheritsFromSimpleClass>();
+
+                    instance.InterceptedByMultipleAspects = 2;
+                    var result = instance._interceptedByMultipleAspectsValue;
+
+                    Assert.Equal(13, result);
+                });
+            }
+        }
     }
 }
