@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CodeLoom.Aspects;
 using CodeLoom.Bindings;
 using CodeLoom.Contexts;
+using TestAssembly.Aspects.ImplementInterface;
 using TestAssembly.ClassesToWeave;
 using TestAssemblyReference;
 
@@ -14,9 +15,52 @@ using TestAssemblyReference;
 
 namespace TestAssembly
 {
+    public interface I1
+    {
+        int Method1();
+
+        int Prop1 { get; set; }
+    }
+
+    public interface I2<T1, T2>
+    {
+        int Method1();
+
+        int Prop1 { get; set; }
+    }
+
+    public class Test : I1, I2<int, string>
+    {
+        
+        int I1.Prop1 { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        int I2<int, string>.Prop1 { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+        int I1.Method1()
+        {
+            throw new NotImplementedException();
+        }
+
+        int I2<int, string>.Method1()
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     public class CodeLoomSetup : CodeLoom.CodeLoomSetup
     {
-        public override IEnumerable<IInterceptMethodAspect> GetMethodAspects(MethodBase method)
+        public override IEnumerable<IImplementInterfaceAspect> GetImplementInterfaceAspects(Type type)
+        {
+            if (type == typeof(ImplementSimpleMethodsClass))
+                yield return new ImplementInterfaceSimpleMethodsAspect();
+
+            if (type == typeof(ImplementGenericMethodsClass))
+            {
+                yield return new ImplementInterfaceGenericMethodsAspect<int, string>();
+                yield return new ImplementInterfaceGenericMethodsAspect<SimpleStruct, SimpleClass>();
+            }
+        }
+
+        public override IEnumerable<IInterceptMethodAspect> GetInterceptMethodAspects(MethodBase method)
         {
             #region InterceptMethodsClass
             if (method == typeof(InterceptMethodsClass).GetMethod(nameof(InterceptMethodsClass.ReturnOriginalValueType)))
@@ -347,7 +391,7 @@ namespace TestAssembly
             #endregion
         }
 
-        public override IEnumerable<IInterceptAsyncMethodAspect> GetAsyncMethodAspects(MethodBase method)
+        public override IEnumerable<IInterceptAsyncMethodAspect> GetInterceptAsyncMethodAspects(MethodBase method)
         {
             #region InterceptAsyncMethodsClass
             if (method == typeof(InterceptAsyncMethodsClass).GetMethod(nameof(InterceptAsyncMethodsClass.ReturnOriginalValue)))
@@ -408,7 +452,7 @@ namespace TestAssembly
             #endregion
         }
 
-        public override IEnumerable<IInterceptPropertyAspect> GetPropertyAspects(PropertyInfo property)
+        public override IEnumerable<IInterceptPropertyAspect> GetInterceptPropertyAspects(PropertyInfo property)
         {
             #region InterceptPropertiesClass
             if (property == typeof(InterceptPropertiesClass<>).GetProperty(nameof(InterceptPropertiesClass<SimpleClass>.OriginalValueType)))

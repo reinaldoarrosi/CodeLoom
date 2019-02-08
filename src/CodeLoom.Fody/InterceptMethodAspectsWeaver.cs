@@ -86,7 +86,7 @@ namespace CodeLoom.Fody
                 {
                     // if the method is async (uses the async keyword) we use a different way of getting the aspects of these methods
                     // this is done because aspects of async methods must implement IInterceptAsyncMethodAspect instead of IInterceptMethodAspect
-                    var aspects = ModuleWeaver.Setup.GetAsyncMethodAspects(method).ToArray();
+                    var aspects = ModuleWeaver.Setup.GetInterceptAsyncMethodAspects(method).ToArray();
                     if (aspects.Length <= 0)
                     {
                         ModuleWeaver.LogInfo($"Method {originalMethod.Name} from type {typeDefinition.FullName} will not be weaved because no aspect was applied to it");
@@ -128,7 +128,7 @@ namespace CodeLoom.Fody
                 else
                 {
                     // if the method is NOT async get the aspects that implement IInterceptMethodAspect
-                    var aspects = ModuleWeaver.Setup.GetMethodAspects(method).ToArray();
+                    var aspects = ModuleWeaver.Setup.GetInterceptMethodAspects(method).ToArray();
                     if (aspects.Length <= 0)
                     {
                         ModuleWeaver.LogInfo($"Method {originalMethod.Name} from type {typeDefinition.FullName} will not be weaved because no aspect was applied to it");

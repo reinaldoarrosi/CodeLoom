@@ -13,6 +13,91 @@ namespace CodeLoom.Fody.Helpers
 {
     internal static class Helpers
     {
+        internal abstract class ImplementationInfo
+        {
+            internal enum Types
+            {
+                Method,
+                Property
+            }
+
+            internal class Method : ImplementationInfo
+            {
+                public Method(MethodInfo interfaceMethod, MethodInfo aspectMethod)
+                {
+
+                    InterfaceMethod = interfaceMethod;
+                    AspectMethod = aspectMethod;
+                }
+
+                internal MethodInfo InterfaceMethod { get; set; }
+                internal MethodInfo AspectMethod { get; set; }
+
+                internal override Types Type {  get { return Types.Method; } }
+            }
+
+            internal class Property : ImplementationInfo
+            {
+                public Property(PropertyInfo propertyInfo)
+                {
+                    PropertyInfo = propertyInfo;
+                }
+
+                internal PropertyInfo PropertyInfo { get; set; }
+                internal MethodInfo InterfaceGetter { get; set; }
+                internal MethodInfo AspectGetter { get; set; }
+                internal MethodInfo InterfaceSetter { get; set; }
+                internal MethodInfo AspectSetter { get; set; }
+
+                internal override Types Type { get { return Types.Property; } }
+            }
+
+            internal abstract Types Type { get; }
+        }
+
+        internal static IEnumerable<ImplementationInfo> GetImplementationInfo(Type aspectType, Type interfaceType)
+        {
+            var map = new Dictionary<MemberInfo, ImplementationInfo>();
+            var interfaceMap = aspectType.GetInterfaceMap(interfaceType);
+            var propertiesGetters = aspectType.GetProperties().Where(p => p.GetMethod != null).ToDictionary(p => p.GetMethod, p => p);
+            var propertiesSetters = aspectType.GetProperties().Where(p => p.SetMethod != null).ToDictionary(p => p.SetMethod, p => p);
+
+            for (int i = 0; i < interfaceMap.InterfaceMethods.Length; i++)
+            {
+                var interfaceMethod = interfaceMap.InterfaceMethods[i];
+                var aspectMethod = interfaceMap.TargetMethods[i];
+
+                if (propertiesGetters.ContainsKey(aspectMethod))
+                {
+                    var propertyInfo = propertiesGetters[aspectMethod];
+
+                    if (!map.ContainsKey(propertyInfo))
+                        map.Add(propertyInfo, new ImplementationInfo.Property(propertyInfo));
+
+                    var propertyImplementationInfo = map[propertyInfo] as ImplementationInfo.Property;
+                    propertyImplementationInfo.InterfaceGetter = interfaceMethod;
+                    propertyImplementationInfo.AspectGetter = aspectMethod;
+                }
+                else if (propertiesSetters.ContainsKey(aspectMethod))
+                {
+                    var propertyInfo = propertiesSetters[aspectMethod];
+
+                    if (!map.ContainsKey(propertyInfo))
+                        map.Add(propertyInfo, new ImplementationInfo.Property(propertyInfo));
+
+                    var propertyImplementationInfo = map[propertyInfo] as ImplementationInfo.Property;
+                    propertyImplementationInfo.InterfaceSetter = interfaceMethod;
+                    propertyImplementationInfo.AspectSetter = aspectMethod;
+                }
+                else
+                {
+                    map.Add(aspectMethod, new ImplementationInfo.Method(interfaceMethod, aspectMethod));
+                }
+            }
+
+            return map.Values;
+        }
+
         internal static string GetUniqueFieldName(TypeDefinition typeDefinition, string baseName)
         {
             var partialName = $"<{baseName}>_field_";
@@ -142,8 +227,19 @@ namespace CodeLoom.Fody.Helpers
                 CallingConvention = method.CallingConvention
             };
 
-            methodRef.CopyParameters(method.Parameters);
             methodRef.CopyGenericParameters(method.GenericParameters);
+
+            foreach (var original in method.Parameters)
+            {
+                var clone = new ParameterDefinition(original.Name, original.Attributes, original.ParameterType);
+
+                foreach (var customAttr in original.CustomAttributes)
+                {
+                    clone.CustomAttributes.Add(customAttr);
+                }
+
+                methodRef.Parameters.Add(clone);
+            }
 
             if (method.GenericParameters.Count > 0)
             {
@@ -183,21 +279,6 @@ namespace CodeLoom.Fody.Helpers
             return genericInstanceMethod;
         }
 
-        internal static void CopyParameters(this MethodReference method, Collection<ParameterDefinition> copySource)
-        {
-            foreach (var original in copySource)
-            {
-                var clone = new ParameterDefinition(original.Name, original.Attributes, original.ParameterType);
-
-                foreach (var customAttr in original.CustomAttributes)
-                {
-                    clone.CustomAttributes.Add(customAttr);
-                }
-
-                method.Parameters.Add(clone);
-            }
-        }
-
         internal static void CopyGenericParameters(this IGenericParameterProvider target, Collection<GenericParameter> copySource)
         {
             var originalToCloneMap = new Dictionary<GenericParameter, GenericParameter>();
@@ -205,6 +286,9 @@ namespace CodeLoom.Fody.Helpers
             foreach (var original in copySource)
             {
                 var clone = new GenericParameter(original.Name, target) { Attributes = original.Attributes };
+                clone.HasDefaultConstructorConstraint = original.HasDefaultConstructorConstraint;
+                clone.HasNotNullableValueTypeConstraint = original.HasNotNullableValueTypeConstraint;
+                clone.HasReferenceTypeConstraint = original.HasReferenceTypeConstraint;
 
                 foreach (var customAttr in original.CustomAttributes)
                 {

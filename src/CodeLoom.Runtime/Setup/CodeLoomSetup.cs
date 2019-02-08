@@ -13,22 +13,22 @@ namespace CodeLoom
         public class Empty : CodeLoomSetup
         { }
 
-        public virtual IEnumerable<IImplementInterfaceAspect> GetTypeAspects(Type type)
+        public virtual IEnumerable<IImplementInterfaceAspect> GetImplementInterfaceAspects(Type type)
         {
             yield break;
         }
 
-        public virtual IEnumerable<IInterceptPropertyAspect> GetPropertyAspects(PropertyInfo property)
+        public virtual IEnumerable<IInterceptPropertyAspect> GetInterceptPropertyAspects(PropertyInfo property)
         {
             yield break;
         }
 
-        public virtual IEnumerable<IInterceptMethodAspect> GetMethodAspects(MethodBase method)
+        public virtual IEnumerable<IInterceptMethodAspect> GetInterceptMethodAspects(MethodBase method)
         {
             yield break;
         }
 
-        public virtual IEnumerable<IInterceptAsyncMethodAspect> GetAsyncMethodAspects(MethodBase method)
+        public virtual IEnumerable<IInterceptAsyncMethodAspect> GetInterceptAsyncMethodAspects(MethodBase method)
         {
             yield break;
         }
